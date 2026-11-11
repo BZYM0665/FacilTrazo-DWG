@@ -1,0 +1,41 @@
+# Compila el conversor DXF→DWG de FácilTrazo a WebAssembly y guarda el resultado
+# en la carpeta dist/dwg del mismo repositorio (para que Claude pueda leerlo e
+# incrustarlo en index.html). Corre solo cuando cambia el conversor, o a mano
+# desde la pestaña Acciones ("Run workflow").
+name: Compilar conversor DWG
+
+on:
+  push:
+    paths:
+      - 'converter/**'
+      - '.github/workflows/build-dwg.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust con destino WebAssembly
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Instalar wasm-pack
+        run: cargo install wasm-pack --locked
+
+      - name: Compilar a WebAssembly
+        run: wasm-pack build converter --target web --release --out-dir ../dist/dwg --out-name dwgconv
+
+      - name: Guardar el resultado en el repositorio
+        run: |
+          rm -f dist/dwg/.gitignore
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -f dist/dwg
+          git diff --cached --quiet || git commit -m "Conversor DWG compilado (WebAssembly)"
+          git push
