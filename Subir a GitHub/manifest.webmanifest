@@ -1,0 +1,30 @@
+{
+  "name": "FácilTrazo",
+  "short_name": "FácilTrazo",
+  "description": "Dibujo técnico 2D compatible con DWG/DXF de AutoCAD",
+  "id": "faciltrazo",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#161b1e",
+  "theme_color": "#161b1e",
+  "lang": "es",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "file_handlers": [
+    {
+      "action": "./",
+      "accept": {
+        "application/x-faciltrazo": [".ftz"],
+        "application/json": [".json"],
+        "image/vnd.dxf": [".dxf"],
+        "image/vnd.dwg": [".dwg"]
+      }
+    }
+  ],
+  "launch_handler": { "client_mode": "focus-existing" }
+}
