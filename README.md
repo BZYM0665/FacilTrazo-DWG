@@ -13,6 +13,7 @@ Corre completo en el navegador (Windows, Linux y otros sistemas) y se puede inst
 - `index.html` — la aplicación completa (un solo archivo).
 - `manifest.webmanifest`, `sw.js` y los archivos `icon-*.png` / `maskable-*.png` — instalación, ícono y funcionamiento sin internet.
 - `converter/` y `dist/dwg/` — conversor DXF→DWG compilado a WebAssembly (va incrustado en `index.html`).
+- `conector/` — el conector para conectar una IA (archivo `.mcpb` para Claude Desktop) y `AVISOS_DEL_CONECTOR.txt`, con los componentes de terceros que lleva.
 - `LICENSE.txt` — la licencia de uso.
 - Las versiones de escritorio no están entre los archivos del repositorio: se descargan desde **Releases**.
 - `AVISOS_DE_TERCEROS.txt` — componentes de terceros y sus licencias.
@@ -41,10 +42,21 @@ Notas:
 
 FácilTrazo puede trabajar junto a una IA que usted ya use. Se activa en **⚙ Configuración › General › «Conectar con IA»** (viene apagado).
 
-- **Cómo funciona:** la IA se conecta por un conector local («FácilTrazo», estándar MCP) que se instala aparte en Claude Desktop como extensión `.mcpb`. Todavía no está publicado en este repositorio. Se pide en la conversación: «conecta FácilTrazo».
+- **Cómo funciona:** la IA se conecta por un conector local («FácilTrazo», estándar MCP) que se instala aparte en Claude Desktop como extensión `.mcpb`. Está en la carpeta `conector/` de este repositorio; los pasos están en «Instalar el conector». Se pide en la conversación: «conecta FácilTrazo».
 - **Qué puede hacer la IA:** leer el dibujo abierto y medirlo; dibujar líneas, polilíneas, rectángulos, círculos, arcos, textos, cotas y achurados; modificar figuras; mirar una captura para comprobar el resultado; y guardar en DWG o DXF.
 - **Control suyo:** cada orden de la IA es un paso que se puede **deshacer**; respeta el Modo revisión y las capas bloqueadas; la conexión solo funciona en su equipo (no sale a internet) y se apaga desmarcando la casilla.
 - **Probado con:** Claude Desktop y Microsoft Edge. Con otras IA o navegadores no se ha probado.
+
+### Instalar el conector (Claude Desktop)
+
+Necesita **Claude Desktop** y FácilTrazo **rev18 o más nueva** (la versión se ve arriba a la izquierda, por ejemplo «v1.9.1 · rev18»; la de esta página y la de escritorio 1.0.3 lo son). No hace falta instalar Node.js: el conector usa el que trae Claude Desktop.
+
+1. Descargue **[FacilTrazo_conector_Claude_1.1.1.mcpb](https://github.com/BZYM0665/FacilTrazo-DWG/raw/main/conector/FacilTrazo_conector_Claude_1.1.1.mcpb)** (298.430 bytes). Para comprobar la descarga, su huella SHA-256 debe ser `fd1206d2b3a435bb89410bbf007a23e1b024a03f0fd620f925a55652a154e48d`.
+2. En Claude Desktop abra **Ajustes → Extensiones**. En la sección «Desarrollador de extensiones» (según la versión, dentro de «Configuración avanzada») pulse **Instalar extensión** y elija el archivo. También puede arrastrar el archivo a esa pantalla. En Windows, el doble clic puede abrir el Bloc de notas si ese tipo de archivo no está asociado a ningún programa: use el botón. Los nombres exactos de las pantallas pueden cambiar con la versión de Claude Desktop.
+3. **Cierre Claude Desktop por completo** (ícono de la bandeja del sistema → Salir) y ábralo de nuevo. Sin esto, la conversación puede seguir usando una versión anterior del conector.
+4. Abra FácilTrazo y, en una conversación nueva de Claude, pida: «conecta FácilTrazo». Si no conecta sola, pegue el código de conexión que Claude le muestre en **⚙ Configuración › General › Conectar con IA**. Edge puede preguntar si permite «Acceder a otras aplicaciones y servicios en este dispositivo»: pulse **Permitir**.
+
+Para actualizar el conector, quite la extensión anterior en Ajustes → Extensiones, instale la nueva y reinicie Claude Desktop. El archivo `.mcpb` lleva dentro la licencia de FácilTrazo (`LICENSE.txt`); los componentes de terceros que empaqueta están en `conector/AVISOS_DEL_CONECTOR.txt` (no van dentro del `.mcpb`).
 
 ## Privacidad
 
@@ -61,7 +73,7 @@ Resumen (vale solo el texto completo de `LICENSE.txt`, en español):
 - No puede modificarlo, hacer versiones derivadas, descompilarlo, venderlo ni cobrar por él.
 - Sus dibujos y archivos son suyos.
 
-Los componentes de terceros que lleva el programa tienen sus propias licencias; están en `AVISOS_DE_TERCEROS.txt`.
+Los componentes de terceros que lleva el programa tienen sus propias licencias; están en `AVISOS_DE_TERCEROS.txt` (los del conector, en `conector/AVISOS_DEL_CONECTOR.txt`).
 
 ## Comentarios y mejoras
 
