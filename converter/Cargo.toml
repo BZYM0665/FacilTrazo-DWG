@@ -3,7 +3,6 @@ name = "dwgconv"
 version = "0.1.0"
 edition = "2021"
 description = "Conversor DXF→DWG de FácilTrazo (acadrust compilado a WebAssembly)"
-license = "MIT"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
