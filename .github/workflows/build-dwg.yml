@@ -1,11 +1,14 @@
 # Compila el conversor DXF→DWG de FácilTrazo a WebAssembly y guarda el resultado
 # en la carpeta dist/dwg del mismo repositorio (para que Claude pueda leerlo e
 # incrustarlo en index.html). Corre solo cuando cambia el conversor, o a mano
-# desde la pestaña Acciones ("Run workflow").
+# desde la pestaña Acciones ("Run workflow"). Solo en la rama main: así no se
+# ejecuta al crear etiquetas de Releases.
 name: Compilar conversor DWG
 
 on:
   push:
+    branches:
+      - main
     paths:
       - 'converter/**'
       - '.github/workflows/build-dwg.yml'
