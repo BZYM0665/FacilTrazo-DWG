@@ -1,0 +1,264 @@
+==============================================================================
+                                  FÁCILTRAZO
+                  LICENCIA DE USO GRATUITA, SIN MODIFICACIÓN
+==============================================================================
+
+                    Versión 1.0 - 15 de noviembre de 2026
+
+Copyright © 2026 BZYM0665 (nombre de usuario del Autor en GitHub). Todos los
+derechos reservados, salvo los que esta licencia otorga de forma expresa.
+
+RESUMEN (solo orientativo; si hay alguna diferencia, vale el texto completo
+que sigue)
+
+ - Puede descargar y usar FácilTrazo gratis, en Windows, en Linux o desde el
+   navegador, para trabajo personal, de estudio o profesional.
+ - Puede guardar copias de respaldo y compartir copias idénticas, sin
+   modificar y sin cobrar.
+ - Puede enviar comentarios e ideas de mejora al Autor.
+ - No puede modificarlo, hacer versiones derivadas, descompilarlo, venderlo ni
+   cobrar por él, ni quitar los avisos de autor.
+ - Sus dibujos y archivos son suyos.
+ - Esta NO es una licencia de código abierto (open source): el código se
+   publica para que pueda verse y descargarse, no para que se modifique.
+
+1. DEFINICIONES
+---------------
+
+1.1 "Autor": la persona natural indicada en la línea de copyright de este
+    documento, con su nombre o con el seudónimo que allí figure, titular de
+    los derechos de propiedad intelectual sobre el Programa.
+
+1.2 "Programa": FácilTrazo, programa de dibujo 2D (CAD), en cualquiera de las
+    formas publicadas por el Autor: aplicación web e instalable, archivo
+    index.html, versiones de escritorio para Windows y Linux, y componentes
+    complementarios publicados en el repositorio
+    https://github.com/BZYM0665/FacilTrazo-DWG (por ejemplo, el conversor DWG
+    y el conector de IA), junto con su documentación e íconos. No incluye los
+    Componentes de Terceros.
+
+1.3 "Componentes de Terceros": software, bibliotecas, fuentes y otros
+    materiales creados por terceros que el Programa incluye o usa, y que se
+    rigen por su propia licencia (ver cláusula 9).
+
+1.4 "Usted": la persona natural o jurídica que descarga, instala, ejecuta o
+    usa el Programa. Si lo usa en nombre de una empresa u organización,
+    "Usted" incluye a esa entidad, y quien acepta esta licencia declara tener
+    facultades para obligarla.
+
+1.5 "Archivos del Usuario": los dibujos, planos, tablas y demás archivos que
+    Usted crea, abre, importa, guarda o exporta con el Programa.
+
+1.6 "Modificar": alterar, adaptar, traducir, corregir, ampliar, combinar con
+    otro código, extraer partes del Programa o crear de cualquier otra forma
+    una obra derivada de él, en código fuente o en cualquier otro formato.
+
+2. LICENCIA QUE SE OTORGA
+-------------------------
+
+El Autor le otorga una licencia personal, no exclusiva, gratuita, sin límite
+de equipos y válida en cualquier país, sujeta a la cláusula 12, para:
+
+ a) descargar, instalar y ejecutar el Programa en sus equipos, en Windows, en
+    Linux o desde un navegador;
+
+ b) usar el Programa para cualquier fin lícito, sea personal, educativo,
+    profesional o comercial, incluido su uso dentro de una empresa;
+
+ c) hacer las copias de respaldo que necesite;
+
+ d) leer el código fuente publicado, con fines de aprendizaje o de
+    verificación; y
+
+ e) redistribuir copias idénticas del Programa, sin ninguna modificación, en
+    las condiciones de la cláusula 4.
+
+El Programa está pensado para personas de habla hispana de América Latina,
+pero esta licencia no limita su uso a un país o a una región.
+
+3. LO QUE NO SE PERMITE
+-----------------------
+
+Salvo autorización escrita del Autor, Usted no puede:
+
+ a) Modificar el Programa, ni publicar o distribuir versiones modificadas, sea
+    como código, como aplicación o en cualquier otro formato;
+
+ b) descompilar, desensamblar ni aplicar ingeniería inversa al Programa, ni
+    extraer o reutilizar sus partes en otros proyectos, salvo en la medida en
+    que la ley aplicable lo permita expresamente y no pueda limitarse por
+    contrato;
+
+ c) vender, arrendar ni prestar a cambio de dinero el Programa o copias de él,
+    ni sublicenciarlo, ni cobrar por su descarga, instalación o distribución,
+    ni incluirlo en un producto, paquete o servicio por el que se cobre un
+    precio, ni exigir pago o suscripción para acceder a él;
+
+ d) retirar o alterar los avisos de autor, de licencia, de versión o de
+    donación del Programa;
+
+ e) hacer pasar el Programa, o una versión alterada de él, como obra propia;
+    usar el nombre "FácilTrazo", su logotipo o su ícono para identificar otro
+    producto o servicio; ni dar a entender que el Autor respalda un producto o
+    servicio de Usted; ni
+
+ f) usar el Programa para infringir derechos de terceros o la ley.
+
+Esta cláusula no le impide cobrar por su propio trabajo, por ejemplo por
+dibujos o planos hechos con el Programa, o por servicios de capacitación o
+asesoría, siempre que no cobre por el Programa mismo.
+
+4. REDISTRIBUCIÓN
+-----------------
+
+Usted puede compartir copias idénticas, completas y sin modificar del Programa
+solo si:
+
+ a) lo hace gratuitamente;
+
+ b) incluye esta licencia y todos los avisos y archivos de licencia que
+    acompañan al Programa; y
+
+ c) indica la fuente original: https://github.com/BZYM0665/FacilTrazo-DWG.
+
+Cada persona que reciba una copia de Usted recibe la licencia directamente del
+Autor, bajo estos mismos términos.
+
+5. ARCHIVOS DEL USUARIO
+-----------------------
+
+Sus Archivos del Usuario son suyos. El Autor no reclama ningún derecho sobre
+ellos y esta licencia no se extiende a ellos. Usted es responsable de su
+contenido y de contar con las autorizaciones que requieran (por ejemplo, si
+son planos de clientes o de terceros).
+
+6. COMENTARIOS Y SUGERENCIAS
+----------------------------
+
+6.1 Usted puede enviar al Autor comentarios, reportes de errores e ideas de
+    mejora por el canal que el Autor indique en el repositorio (por ejemplo,
+    la sección "Issues" de https://github.com/BZYM0665/FacilTrazo-DWG).
+
+6.2 Al enviarlos, Usted declara que tiene derecho a hacerlo y otorga al Autor
+    una licencia mundial, perpetua, irrevocable, gratuita, no exclusiva y
+    sublicenciable para usar, copiar, adaptar e incorporar ese contenido,
+    total o parcialmente, en el Programa y en cualquier otro producto o
+    servicio del Autor, sin obligación de pagarle, avisarle ni mencionarlo.
+
+6.3 El Autor no está obligado a responder, a aplicar ningún comentario ni a
+    mantener el Programa. Si Usted incluye código o textos en su propuesta, el
+    Autor podrá usarlos conforme a la cláusula 6.2, pero no está obligado a
+    incorporarlos.
+
+6.4 No incluya en sus comentarios información confidencial, datos personales
+    ni archivos de clientes o de terceros: lo que se publica en un repositorio
+    público puede ser visto por cualquier persona.
+
+7. DONACIONES
+-------------
+
+El uso del Programa bajo esta licencia es gratuito. El Autor puede invitar a
+hacer donaciones voluntarias dentro del Programa, en el repositorio o en
+sitios relacionados. Donar es voluntario; no es un pago por el Programa ni por
+esta licencia, y no da derecho a soporte, funciones, versiones, garantías ni
+participación alguna sobre el Programa.
+
+8. GITHUB Y DERECHOS IRRENUNCIABLES
+-----------------------------------
+
+Nada en esta licencia limita (a) los derechos que las Condiciones de Servicio
+de GitHub otorgan a los usuarios de GitHub sobre los repositorios públicos
+(por ejemplo, ver un repositorio y bifurcarlo dentro de GitHub), ni (b) los
+derechos que la ley aplicable le reconozca a Usted y que no puedan renunciarse
+ni limitarse por contrato. Esos derechos no autorizan a distribuir fuera de
+GitHub versiones modificadas del Programa.
+
+9. COMPONENTES DE TERCEROS
+--------------------------
+
+El Programa incluye o usa Componentes de Terceros (por ejemplo, el lector de
+PDF pdf.js, la biblioteca acadrust para leer y escribir archivos DWG y, en las
+versiones de escritorio, Electron y Chromium). Cada uno se rige únicamente por
+su propia licencia, indicada en el archivo AVISOS_DE_TERCEROS.txt que acompaña
+al Programa y en los archivos de licencia que se entregan con las versiones de
+escritorio. Las prohibiciones de esta licencia no limitan los derechos que
+esas licencias le otorgan sobre esos componentes, y esta licencia no las
+reemplaza. El Autor no otorga garantía alguna sobre los Componentes de
+Terceros.
+
+10. SIN GARANTÍA Y RESPONSABILIDAD PROFESIONAL
+----------------------------------------------
+
+10.1 En la medida que la ley aplicable lo permita, el Programa se entrega "TAL
+     CUAL" y "SEGÚN DISPONIBILIDAD", sin garantías de ningún tipo, expresas ni
+     implícitas, incluidas las de comerciabilidad, idoneidad para un fin
+     particular, exactitud, ausencia de errores y ausencia de infracción.
+
+10.2 El Programa es una herramienta de dibujo. Las medidas, cubicaciones,
+     planos y archivos que Usted produzca con él (DWG, DXF, JSON, Excel u
+     otros) pueden contener errores o verse distintos en otros programas.
+     Usted debe revisarlos antes de usarlos para fabricar, comprar, construir,
+     instalar o tomar decisiones técnicas, económicas o de seguridad. La
+     responsabilidad por ese uso es suya.
+
+10.3 Se recomienda guardar y respaldar su trabajo con frecuencia.
+
+11. LIMITACIÓN DE RESPONSABILIDAD
+---------------------------------
+
+En la medida que la ley aplicable lo permita, el Autor no será responsable por
+daños indirectos, lucro cesante, pérdida de datos, de archivos o de trabajo,
+interrupción de actividades ni otros daños derivados del uso o de la
+imposibilidad de usar el Programa, aunque se le hubiera advertido de esa
+posibilidad. Como el Programa se entrega gratis, la responsabilidad total del
+Autor, si la hubiera, no excederá del monto que Usted haya pagado por el
+Programa, que es cero. Esta cláusula no excluye la responsabilidad por dolo o
+culpa grave ni limita los derechos irrenunciables que Usted tenga, incluidas
+las normas de protección al consumidor de su país.
+
+12. VIGENCIA Y TÉRMINO
+----------------------
+
+12.1 Esta licencia rige desde que Usted descarga o usa el Programa y mientras
+     cumpla sus términos.
+
+12.2 Si Usted incumple esta licencia, los derechos que se le otorgan terminan
+     automáticamente; en ese caso debe dejar de usar el Programa y borrar sus
+     copias. Las licencias de quienes hayan recibido copias de Usted no se ven
+     afectadas mientras ellos cumplan estos términos.
+
+12.3 El Autor puede publicar nuevas versiones del Programa con otros términos,
+     o dejar de publicarlo. Las versiones que Usted ya haya recibido bajo esta
+     licencia se siguen rigiendo por ella.
+
+13. LEY APLICABLE Y TRIBUNALES
+------------------------------
+
+Esta licencia se rige por las leyes de la República de Chile, incluida la Ley
+N.º 17.336 sobre Propiedad Intelectual. Para cualquier controversia, las
+partes se someten a los tribunales ordinarios de justicia de Santiago de
+Chile, sin perjuicio de los derechos irrenunciables que la ley de su país le
+reconozca como consumidor para acudir a los tribunales de su domicilio.
+
+14. DISPOSICIONES GENERALES
+---------------------------
+
+14.1 El texto en español es el único válido; cualquier traducción es solo
+     informativa.
+
+14.2 Si alguna cláusula resulta inválida o inaplicable, las demás siguen
+     vigentes.
+
+14.3 Que el Autor no ejerza un derecho en un momento dado no significa que
+     renuncie a él.
+
+14.4 Los derechos que esta licencia no otorga de forma expresa quedan
+     reservados al Autor.
+
+14.5 Esta licencia es el acuerdo completo entre Usted y el Autor sobre el
+     Programa y reemplaza cualquier acuerdo anterior sobre el mismo asunto.
+
+15. CONTACTO
+------------
+
+https://github.com/BZYM0665/FacilTrazo-DWG (sección "Issues").

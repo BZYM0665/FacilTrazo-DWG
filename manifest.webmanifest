@@ -1,7 +1,7 @@
 {
   "name": "FácilTrazo",
   "short_name": "FácilTrazo",
-  "description": "Dibujo técnico 2D compatible con DWG/DXF de AutoCAD",
+  "description": "Dibujo técnico 2D compatible con DWG/DXF de AutoCAD, gratuito. Se le puede conectar una IA desde Configuración › General.",
   "id": "faciltrazo",
   "start_url": "./",
   "scope": "./",
