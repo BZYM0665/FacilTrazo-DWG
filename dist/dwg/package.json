@@ -3,7 +3,6 @@
   "type": "module",
   "description": "Conversor DXF→DWG de FácilTrazo (acadrust compilado a WebAssembly)",
   "version": "0.1.0",
-  "license": "MIT",
   "files": [
     "dwgconv_bg.wasm",
     "dwgconv.js",
