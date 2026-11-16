@@ -300,7 +300,7 @@ body.resizing-v{cursor:row-resize;user-select:none}
 <div class="app">
   <div class="topbar">
     <div class="logo-wrapper">
-      <div class="logo" id="logo-btn" title="Menú de archivo: Nuevo, Guardar, Guardar como, Abrir (también DWG y DXF), Mis dibujos">FácilTrazo <span class="version" id="app-version" title="Versión del programa: 1.9.1-rev18">v1.9.1 · rev18</span><span class="logo-filename" id="logo-filename"></span></div>
+      <div class="logo" id="logo-btn" title="Menú de archivo: Nuevo, Guardar, Guardar como, Abrir (también DWG y DXF), Mis dibujos">FácilTrazo <span class="version" id="app-version" title="Versión del programa: 1.9.1-rev21">v1.9.1 · rev21</span><span class="logo-filename" id="logo-filename"></span></div>
       <div class="logo-menu" id="logo-menu">
         <div class="logo-menu-filename" id="logo-menu-filename"></div>
         <div class="logo-menu-item" data-action="new"><span class="icon">🆕</span> Nuevo dibujo</div>
@@ -327,6 +327,7 @@ body.resizing-v{cursor:row-resize;user-select:none}
       <button class="axis-btn" id="crosshair-toggle" title="Cruz completa (F6): dos líneas finas que cruzan toda la pantalla siguiendo el cursor, para alinear a simple vista.">✛ Cruz completa</button>
       <button class="action-btn" id="btn-zoom-extents" title="Ajustar vista a todo el dibujo">🔍 Todo</button>
       <button class="action-btn" id="btn-calc" title="Calculadora y conversor de unidades">🧮 Calculadora</button>
+      <button class="axis-btn active" id="btn-tapas" hidden style="display:none" title="Tapas (wipeout) visibles, como en AutoCAD.">◧ Tapas</button>
       <button class="action-btn" id="btn-units" title="Configurar unidades">⚙ Unidades<span class="units-indicator" id="units-indicator"></span></button>
       <button class="action-btn" id="btn-undo">↶</button>
       <button class="action-btn" id="btn-redo">↷</button>
@@ -392,6 +393,9 @@ body.resizing-v{cursor:row-resize;user-select:none}
       <label>Escala de tipo de línea</label>
       <input type="number" id="linetype-scale" step="0.1" min="0.1" value="1">
       <div class="hint">Ajusta el tamaño de las rayas/puntos de Guiones, Punteada, Centro, etc. Igual concepto que LTSCALE en AutoCAD. 1 = tamaño base.</div>
+    </div>
+    <div class="modal-field"><div class="radio-group"><label><input type="checkbox" id="linetype-real"> Tipos de línea a escala real (como AutoCAD)</label></div>
+      <div class="hint">Activado: al alejar el dibujo las rayas se ven continuas y al acercar aparecen, igual que en AutoCAD. Desactivado: las rayas se agrandan para verse siempre.</div>
     </div>
     <div class="modal-buttons">
       <button class="modal-btn" id="units-cancel">Cancelar</button>
@@ -916,7 +920,7 @@ function lineTypeSwatchSVG(lineType,color,w,h){
 const UNIT_FACTORS={'mm':1,'cm':10,'m':1000,'in':25.4,'ft':304.8};
 const UNIT_LABELS={'mm':'mm','cm':'cm','m':'m','in':'in','ft':'ft'};
 const UNIT_NAMES={'mm':'Milímetros','cm':'Centímetros','m':'Metros','in':'Pulgadas','ft':'Pies'};
-const unitsSettings={unitType:'mm',precision:2,angleFormat:'deg',lineTypeScale:1};
+const unitsSettings={unitType:'mm',precision:2,angleFormat:'deg',lineTypeScale:1,ltReal:false,ltPat:null,hideWipeouts:false};
 const GRID_ANGLES_FLAT=[0,45,90,135,180,225,270,315];
 function getActiveAngles(){return GRID_ANGLES_FLAT}
 
@@ -1562,7 +1566,7 @@ function executeCommand(d,c){c.execute();d.history.push(c);d.future=[];invalidat
 function undo(d){const c=d.history.pop();if(!c)return false;c.reverse();d.future.push(c);invalidateEntitiesCache();return true}
 function redo(d){const c=d.future.pop();if(!c)return false;c.execute();d.history.push(c);invalidateEntitiesCache();return true}
 function serializeDocument(d){d.units=JSON.parse(JSON.stringify(unitsSettings));return JSON.stringify({version:70,layers:d.layers,activeLayerId:d.activeLayerId,entities:d.entities,units:d.units,dimSettings:JSON.parse(JSON.stringify(dimSettings))},null,2)}
-function deserializeDocument(j){const data=JSON.parse(j);const d=createDocument();d.layers=data.layers||d.layers;d.activeLayerId=data.activeLayerId||'0';if(!d.layers.find(l=>l.id===d.activeLayerId)&&d.layers.length>0){d.activeLayerId=d.layers[0].id;}d.entities=data.entities||[];if(data.units){unitsSettings.unitType=data.units.unitType||'mm';unitsSettings.precision=data.units.precision!==undefined?data.units.precision:2;unitsSettings.angleFormat=data.units.angleFormat||'deg';unitsSettings.lineTypeScale=(typeof data.units.lineTypeScale==='number'&&data.units.lineTypeScale>0)?data.units.lineTypeScale:1;updateUnitsIndicator()}if(data.dimSettings){if(typeof data.dimSettings.textHeight==='number'&&data.dimSettings.textHeight>0)dimSettings.textHeight=data.dimSettings.textHeight;if(typeof data.dimSettings.arrowSize==='number'&&data.dimSettings.arrowSize>0)dimSettings.arrowSize=data.dimSettings.arrowSize;if(typeof data.dimSettings.color==='string')dimSettings.color=data.dimSettings.color}let mx=0;d.entities.forEach(e=>{if(e.id>mx)mx=e.id});nextId=mx+1;return d}
+function deserializeDocument(j){const data=JSON.parse(j);const d=createDocument();d.layers=data.layers||d.layers;d.activeLayerId=data.activeLayerId||'0';if(!d.layers.find(l=>l.id===d.activeLayerId)&&d.layers.length>0){d.activeLayerId=d.layers[0].id;}d.entities=data.entities||[];if(data.units){unitsSettings.unitType=data.units.unitType||'mm';unitsSettings.precision=data.units.precision!==undefined?data.units.precision:2;unitsSettings.angleFormat=data.units.angleFormat||'deg';unitsSettings.lineTypeScale=(typeof data.units.lineTypeScale==='number'&&data.units.lineTypeScale>0)?data.units.lineTypeScale:1;unitsSettings.ltReal=data.units.ltReal===true;unitsSettings.ltPat=(data.units.ltPat&&typeof data.units.ltPat==='object')?data.units.ltPat:null;unitsSettings.hideWipeouts=data.units.hideWipeouts===true;updateUnitsIndicator()}if(data.dimSettings){if(typeof data.dimSettings.textHeight==='number'&&data.dimSettings.textHeight>0)dimSettings.textHeight=data.dimSettings.textHeight;if(typeof data.dimSettings.arrowSize==='number'&&data.dimSettings.arrowSize>0)dimSettings.arrowSize=data.dimSettings.arrowSize;if(typeof data.dimSettings.color==='string')dimSettings.color=data.dimSettings.color}let mx=0;d.entities.forEach(e=>{if(e.id>mx)mx=e.id});nextId=mx+1;return d}
 
 function distPtSeg(px,py,ax,ay,bx,by){const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;if(l2===0)return Math.hypot(px-ax,py-ay);let t=((px-ax)*dx+(py-ay)*dy)/l2;t=Math.max(0,Math.min(1,t));return Math.hypot(px-(ax+t*dx),py-(ay+t*dy))}
 // Igual que distPtSeg pero sin recortar t a [0,1]: distancia a la RECTA infinita que pasa por (ax,ay)-(bx,by).
@@ -3133,7 +3137,7 @@ function getLineWeightPixels(lineWeight){
 // mantienen su tamaño real de dibujo al hacer zoom, en vez de verse siempre igual en pantalla.
 function getLineDashPixels(lineType){
   if(!lineType||lineType==='continuous'||lineType==='bylayer')return[];
-  const pattern=LINETYPE_PATTERNS_MM[lineType];
+  const pattern=((unitsSettings.ltPat&&unitsSettings.ltPat[lineType]&&ltFileScaleActive())?unitsSettings.ltPat[lineType]:null)||LINETYPE_PATTERNS_MM[lineType];
   if(!pattern)return[];
   const px=view.scale*(unitsSettings.lineTypeScale||1);
   return pattern.map(v=>v*px);
@@ -4891,7 +4895,7 @@ function doOpen(){
 
 function doNew(){
   const resetAll=()=>{
-    app.d=createDocument();
+    app.d=createDocument();resetCadView();
     clearAutosave();
     app.currentFileName=DEFAULT_FILENAME;
     updateFileNameDisplay();
@@ -5537,6 +5541,7 @@ function zoomExtents(){
 function updateUnitsIndicator(){
   const ind=document.getElementById('units-indicator');
   if(ind){ind.textContent=` (${getUnitLabel()})`}
+  try{updateTapasBtn()}catch(e){}
 }
 
 function openUnitsModal(){
@@ -5549,6 +5554,7 @@ function openUnitsModal(){
     r.checked=r.value===unitsSettings.angleFormat;
   });
   document.getElementById('linetype-scale').value=unitsSettings.lineTypeScale;
+  document.getElementById('linetype-real').checked=unitsSettings.ltReal===true;
   modal.classList.add('visible');
 }
 
@@ -5565,6 +5571,7 @@ function applyUnitsSettings(){
   unitsSettings.angleFormat=angleRadio?angleRadio.value:'deg';
   const ltScale=parseFloat(document.getElementById('linetype-scale').value);
   unitsSettings.lineTypeScale=(!isNaN(ltScale)&&ltScale>0)?ltScale:1;
+  unitsSettings.ltReal=document.getElementById('linetype-real').checked;
   updateUnitsIndicator();
   closeUnitsModal();
   renderPanels();
@@ -6752,7 +6759,7 @@ const sceneCtx=sceneCanvas.getContext('2d');
 let _sceneSig=null;
 function sceneSignature(){
   return[view.scale,view.offsetX,view.offsetY,canvas.width,canvas.height,_sceneVersion,gridSettings.visible,axisSettings.visible,
-    unitsSettings.lineTypeScale,unitsSettings.unitType,unitsSettings.precision,unitsSettings.angleFormat,
+    unitsSettings.lineTypeScale,unitsSettings.ltReal,unitsSettings.ltPat,unitsSettings.hideWipeouts,unitsSettings.unitType,unitsSettings.precision,unitsSettings.angleFormat,
     dimSettings.textHeight,dimSettings.arrowSize,dimSettings.color,app.d,app.d.selection,app.d.selection.length,
     JSON.stringify(app.d.layers),textScaleOverride,lineWeightMinPxOverride,forceWhiteToBlackOverride];
 }
@@ -7717,7 +7724,7 @@ const CadImport=(function(){
 
   // ---------- Estructura del archivo: cabecera, capas, bloques, entidades ----------
   function parseStructure(T){
-    const header={},layers={},blocks={},entities=[],styles={},blockRecords={},layoutsRaw=[];
+    const header={},layers={},blocks={},entities=[],styles={},blockRecords={},layoutsRaw=[],ltypes={};
     const sortents={}; // orden de dibujo de AutoCAD (DRAWORDER): handle de figura -> handle de orden
     let i=0;const n=T.n;
     function isZero(k,name){return T.codes[k]===0&&T.tstr(k)===name}
@@ -7764,6 +7771,12 @@ const CadImport=(function(){
               const s=i;i++;while(i<n&&T.codes[i]!==0)i++;
               let h=null,nm=null;for(let k=s+1;k<i;k++){const c=T.codes[k];if(c===5)h=T.tstr(k);else if(c===2)nm=T.str(k)}
               if(h&&nm)blockRecords[h.toUpperCase()]=nm;
+            }else if(isZero(i,'LTYPE')){
+              // Tipos de línea del archivo: nombre y largos de raya (+) / espacio (−) / punto (0)
+              const s=i;i++;while(i<n&&T.codes[i]!==0)i++;
+              const LT={name:'',el:[],shape:false};
+              for(let k=s+1;k<i;k++){const c=T.codes[k];if(c===2)LT.name=T.str(k);else if(c===49)LT.el.push(T.num(k));else if(c===74){const fl=parseInt(T.str(k),10)||0;if(fl&6)LT.shape=true}}
+              if(LT.name)ltypes[LT.name.toUpperCase()]=LT;
             }else if(isZero(i,'STYLE')){
               const s=i;i++;while(i<n&&T.codes[i]!==0)i++;
               const st={name:'',font:'',wf:1};
@@ -7828,7 +7841,7 @@ const CadImport=(function(){
         }
       }else i++;
     }
-    return{header,layers,blocks,entities,styles,blockRecords,layoutsRaw,sortents};
+    return{header,layers,blocks,entities,styles,blockRecords,layoutsRaw,sortents,ltypes};
   }
 
   // ---------- Matrices afines 2D: [a,b,c,d,e,f] → x'=a·x+c·y+e, y'=b·x+d·y+f ----------
@@ -8025,6 +8038,7 @@ const CadImport=(function(){
     }
 
     function count(map,k){map[k]=(map[k]||0)+1}
+    const ltUseExp={}; // rev19: tipo de línea del archivo puesto directamente en la figura -> cantidad, por tipo de FácilTrazo
     const LIM=1e10;
     function badPt(p){return!p||!isFinite(p.x)||!isFinite(p.y)||Math.abs(p.x)>LIM||Math.abs(p.y)>LIM}
     function damaged(e){
@@ -8045,9 +8059,10 @@ const CadImport=(function(){
       let color;
       if(cm.tc!=null)color=tcHex(cm.tc);
       else if(cm.aci===undefined||cm.aci===256)color='bylayer';
-      else if(cm.aci===0)color=ctx.color==='bylayer'?(layerColor[ctx.blockLayer||layer]||'#ffffff'):(ctx.color||'#ffffff');
+      else if(cm.aci===0)color=!ctx.blockLayer?'#ffffff':(ctx.color==='bylayer'?(layerColor[ctx.blockLayer||layer]||'#ffffff'):(ctx.color||'#ffffff'));   // rev21: PorBloque fuera de bloque = blanco (como AutoCAD)
       else color=aciHex(cm.aci);
       let lt=mapLineType(cm.lt);
+      if(cm.lt&&lt!=='bylayer'&&lt!=='byblock'&&lt!=='continuous'){const u=cm.lt.toUpperCase().trim();const m=ltUseExp[lt]||(ltUseExp[lt]={});m[u]=(m[u]||0)+1}
       if(lt==='byblock')lt=ctx.lt||'bylayer';
       const lw=mapLineWeight(cm.lw,ctx.lw);
       e.layerId=layer;e.color=color;e.lineType=lt;e.lineWeight=lw;
@@ -8358,7 +8373,7 @@ const CadImport=(function(){
           // Contexto para el contenido del bloque
           let color='bylayer';
           if(cm.tc!=null)color=tcHex(cm.tc);
-          else if(cm.aci===0)color=ctx.color||'bylayer';
+          else if(cm.aci===0)color=ctx.blockLayer?(ctx.color||'bylayer'):'#ffffff';   // rev21: inserción PorBloque fuera de bloque = blanco
           else if(cm.aci!==undefined&&cm.aci!==256)color=aciHex(cm.aci);
           let layer=cm.layer||'0';if(ctx.blockLayer&&layer==='0')layer=ctx.blockLayer;
           let lt=mapLineType(cm.lt);if(lt==='byblock')lt=ctx.lt||'bylayer';
@@ -8710,6 +8725,44 @@ const CadImport=(function(){
     }
     processList(S.entities,SC,{blockLayer:null,color:'bylayer',lt:'bylayer',lw:'bylayer',group:null},0);
     sortByDrawOrder(out);
+    // rev20: las tapas (wipeout) de los bloques de arquitectura NO tapan las capas de climatización (CL-*).
+    // Así lo muestra DWG TrueView/AutoCAD en este plano (puertas y ventanas): los muros se ocultan bajo la
+    // tapa, pero ductos, cañerías y sus textos se ven completos aunque en el orden del archivo vayan antes.
+    // Se resuelve sin tocar las figuras: las CL-* anteriores a una tapa que las toca se dibujan justo después.
+    function liftHvacOverMasks(arr){
+      const isHv=e=>/^CL-/i.test(e.layerId||'');
+      const lbb=e=>{
+        switch(e.type){
+          case'line':return e.p1&&e.p2?[Math.min(e.p1.x,e.p2.x),Math.min(e.p1.y,e.p2.y),Math.max(e.p1.x,e.p2.x),Math.max(e.p1.y,e.p2.y)]:null;
+          case'circle':case'arc':return e.center?[e.center.x-e.radius,e.center.y-e.radius,e.center.x+e.radius,e.center.y+e.radius]:null;
+          case'ellipse':{if(!e.center)return null;const hx=Math.hypot(e.ux,e.vx),hy=Math.hypot(e.uy,e.vy);return[e.center.x-hx,e.center.y-hy,e.center.x+hx,e.center.y+hy]}
+          case'text':{if(!e.pos)return null;const ls=String(e.text||'').split('\n');let m=1;for(const s of ls)if(s.length>m)m=s.length;const r=Math.max(e.height*0.7*m,e.height*1.3*ls.length);return[e.pos.x-r,e.pos.y-r,e.pos.x+r,e.pos.y+r]}
+          default:{const P=e.points;if(!P||!P.length)return null;let a=Infinity,b=Infinity,c=-Infinity,d=-Infinity;for(let i=0;i<P.length;i++){const p=P[i];if(p.x<a)a=p.x;if(p.y<b)b=p.y;if(p.x>c)c=p.x;if(p.y>d)d=p.y}return[a,b,c,d]}
+        }
+      };
+      const masks=[];
+      for(let i=0;i<arr.length;i++){const e=arr[i];if(e.type==='hatch'&&e.mask&&e.blk&&e.points&&e.points.length>2){const b=lbb(e);if(b)masks.push({i,b})}}
+      if(!masks.length)return 0;
+      const hv=[];
+      for(let i=0;i<arr.length;i++){const e=arr[i];if(!isHv(e))continue;const b=lbb(e);if(b)hv.push({i,b})}
+      if(!hv.length)return 0;
+      const dest=new Map();
+      for(const m of masks){
+        for(let k=0;k<hv.length;k++){
+          const h=hv[k];if(h.i>=m.i)break;
+          if(h.b[2]>=m.b[0]&&h.b[0]<=m.b[2]&&h.b[3]>=m.b[1]&&h.b[1]<=m.b[3])dest.set(h.i,m.i);   // las tapas van en orden: gana la última que la toca
+        }
+      }
+      if(!dest.size)return 0;
+      const after=new Map();
+      const moved=[...dest.keys()].sort((a,b)=>a-b);
+      for(const hi of moved){const mi=dest.get(hi);let l=after.get(mi);if(!l)after.set(mi,l=[]);l.push(arr[hi])}
+      const res=[];
+      for(let i=0;i<arr.length;i++){if(dest.has(i))continue;res.push(arr[i]);const l=after.get(i);if(l)for(let q=0;q<l.length;q++)res.push(l[q])}
+      for(let i=0;i<res.length;i++)arr[i]=res[i];
+      return moved.length;
+    }
+    stats.hvacOverMask=liftHvacOverMasks(out);
     // ---------- Hojas (layouts): figuras de espacio papel y ventanas gráficas ----------
     const layoutsOut=[];
     try{
@@ -8766,7 +8819,42 @@ const CadImport=(function(){
     const ltsH=S.header.$LTSCALE&&parseFloat(S.header.$LTSCALE[40]);
     const metric=!(S.header.$MEASUREMENT&&S.header.$MEASUREMENT[70]&&S.header.$MEASUREMENT[70].trim()==='0');
     if(ltsH&&ltsH>0)lts=ltsH*f*(metric?12.7/6:0.5/6);
-    return{entities:out,layers:layerOut,stats,lineTypeScale:lts,layouts:layoutsOut};
+    // rev19: patrones REALES de los tipos de línea del archivo (como los dibuja AutoCAD).
+    // Por cada tipo de FácilTrazo se usa el tipo del archivo con más figuras. Ya incluyen la unidad (→ mm) y $LTSCALE.
+    let ltPat=null;
+    try{
+      const LTD=(typeof LINETYPE_PATTERNS_MM!=='undefined')?LINETYPE_PATTERNS_MM:{dashed:[6,3],dot:[0,3],dashdot:[6,3,0,3],center:[10,3,2,3],hidden:[3,2],phantom:[10,3,2,3,2,3]};
+      const layLt={};for(const nm in S.layers)layLt[nm]=S.layers[nm].lt||'';
+      const use={};
+      for(const e of out){
+        if(e.lineType!=='bylayer')continue;
+        const ln=layLt[e.layerId];if(!ln)continue;
+        const ft=mapLineType(ln);if(!LTD[ft])continue;
+        const u=ln.toUpperCase();const m=use[ft]||(use[ft]={});m[u]=(m[u]||0)+1;
+      }
+      for(const ft in ltUseExp){const m=use[ft]||(use[ft]={});for(const u in ltUseExp[ft])m[u]=(m[u]||0)+ltUseExp[ft][u]}
+      const kk=f*((ltsH&&ltsH>0)?ltsH:1);
+      const pats={},ratios=[];
+      for(const ft in use){
+        let best=null,bc=-1;const m=use[ft];
+        for(const u in m)if(m[u]>bc&&S.ltypes[u]){best=u;bc=m[u]}
+        if(!best)continue;
+        const LT=S.ltypes[best],el=LT.el;
+        if(LT.shape||el.length<2||el.length%2)continue;
+        const p=[];let ok=true;
+        for(let k=0;k<el.length;k++){const v=el[k];if(!isFinite(v)||(k%2===0?v<0:v>0)){ok=false;break}p.push(Math.abs(v))}
+        if(!ok)continue;
+        const per=p.reduce((a,b)=>a+b,0);if(!(per>0))continue;
+        pats[ft]=p.map(v=>Math.round(v*kk*1000)/1000);
+        ratios.push(per*kk/LTD[ft].reduce((a,b)=>a+b,0));
+      }
+      if(ratios.length){
+        ratios.sort((a,b)=>a-b);const med=ratios[Math.floor(ratios.length/2)];
+        for(const ft in LTD)if(!pats[ft])pats[ft]=LTD[ft].map(v=>Math.round(v*med*1000)/1000);
+        ltPat=pats;
+      }
+    }catch(err){console.warn('Tipos de línea del archivo no leídos:',err)}
+    return{entities:out,layers:layerOut,stats,lineTypeScale:ltPat?1:lts,ltPat,layouts:layoutsOut};
   }
 
   // Unidades declaradas en el archivo ($INSUNITS) y tamaño del dibujo, para el diálogo de importación
@@ -9162,6 +9250,7 @@ function applyCadImport(res,c,unit,mode){
     d.entities=res.entities;
     unitsSettings.unitType=unit;
     unitsSettings.lineTypeScale=Math.max(1,Math.round(res.lineTypeScale*100)/100);
+    unitsSettings.ltPat=res.ltPat||null;unitsSettings.ltReal=!!res.ltPat;unitsSettings.hideWipeouts=false;   // rev19: como AutoCAD
     d.units=JSON.parse(JSON.stringify(unitsSettings));
     updateUnitsIndicator();
     app.d=d;
@@ -10430,15 +10519,10 @@ renderLayersPanel=function(){
 };
 function pickLayerColor(layerId){
   const l=app.d.layers.find(x=>x.id===layerId);if(!l)return;
-  const ci=document.createElement('input');ci.type='color';ci.value=l.color;
-  ci.style.cssText='position:fixed;opacity:0;pointer-events:none;left:0;top:0';
-  document.body.appendChild(ci);
-  ci.addEventListener('change',ev=>{
-    executeCommand(app.d,new ChangeLayerPropertiesCommand(app.d,layerId,{color:ev.target.value}));
-    if(ci.isConnected)ci.remove();onChange();if(layerManagerOpen())renderLayerManager();setMsg(`Color de capa "${l.name}" cambiado`);
-  });
-  ci.addEventListener('blur',()=>setTimeout(()=>{if(ci.isConnected)ci.remove()},300));
-  ci.click();
+  openColorPalette({value:l.color,title:`Color de la capa "${l.name}"`,onPick:hex=>{
+    executeCommand(app.d,new ChangeLayerPropertiesCommand(app.d,layerId,{color:hex}));
+    onChange();if(layerManagerOpen())renderLayerManager();setMsg(`Color de capa "${l.name}" cambiado`);
+  }});
 }
 
 // (v1.3) La lista de capa de la barra superior se quitó a pedido: la capa actual se elige en el
@@ -10669,6 +10753,7 @@ findNearestEntity=function(wx,wy,entities,tolPixels){
 // Máscaras (wipeout): se pintan con el color de fondo y tapan lo que está detrás
 const _drawHatchEntity9=drawHatchEntity;
 drawHatchEntity=function(x,e,col){
+  // rev20: las tapas siempre se dibujan (como AutoCAD); el botón «Tapas» ya no existe
   if(e.mask&&col!=='#00d0ff'&&!/rgba\(255,204,0/.test(col))col=forceWhiteToBlackOverride?'#ffffff':(window.__ftBg||'#1a1f22');
   _drawHatchEntity9(x,e,col);
 };
@@ -10938,6 +11023,8 @@ getLineDashPixels=function(lineType){
   const d=_getLineDashPixelsV16(lineType);
   if(!d.length)return d;
   const period=d.reduce((a,b)=>a+b,0);
+  // rev19: a escala real (planos DWG/DXF) no se agranda nada; si el ciclo es menor a 2 px se ve continua, como en AutoCAD
+  if(unitsSettings.ltReal&&ltFileScaleActive())return period<2?[]:d;
   if(period>0&&period<LT_MIN_PERIOD_PX){const k=LT_MIN_PERIOD_PX/period;return d.map(v=>v*k)}
   return d;
 };
@@ -14977,7 +15064,7 @@ function closeTab(i){
   const t=tabs[i];if(!t)return;
   const doClose=()=>{
     if(tabs.length===1){
-      const d=createDocument();t.fileName=DEFAULT_FILENAME;switching=true;app.d=d;switching=false;t.d=d;app.currentFileName=DEFAULT_FILENAME;
+      const d=createDocument();resetCadView();t.fileName=DEFAULT_FILENAME;switching=true;app.d=d;switching=false;t.d=d;app.currentFileName=DEFAULT_FILENAME;
       try{updateFileNameDisplay()}catch(e){}invalidateEntitiesCache();onChange();renderDocTabs();return;
     }
     if(i===act){const j=i>0?i-1:1;switchTo(j)}
@@ -14990,7 +15077,7 @@ function closeTab(i){
 function newDrawing(){
   const cur=tabs[act];snapGlobals(cur);
   let k=2;while(tabs.some(x=>x.fileName==='dibujo-'+k+'.json'))k++;const nm='dibujo-'+k+'.json';
-  const d=createDocument();app.currentFileName=nm;
+  const d=createDocument();resetCadView();app.currentFileName=nm;
   const t=newTab(d);t.fileName=nm;tabs.push(t);act=tabs.length-1;
   switching=true;app.d=d;switching=false;
   try{updateFileNameDisplay()}catch(e){}invalidateEntitiesCache();setTool('select');try{renderSpaceTabs()}catch(e){}
@@ -15501,7 +15588,7 @@ const tools=document.createElement('div');tools.id='bottom-tools';bar.appendChil
 const GROUPS=[
   ['Referencias a objetos',['snap-grid','snap-entity','snap-int','snap-perp','snap-nearest']],
   ['Ayudas de dibujo',['grid-show','axis-toggle','ortho-toggle','polar-group','dyn-toggle','crosshair-toggle']],
-  ['Vista y unidades',['btn-zoom-extents','btn-calc','btn-units']]
+  ['Vista y unidades',['btn-zoom-extents','btn-calc','btn-tapas','btn-units']]
 ];
 const SHORT={'snap-int':'Inters.','snap-perp':'Perp.','dyn-toggle':'Dinám.','crosshair-toggle':'Cruz','btn-calc':'Calc.','btn-units':'Unid.'};
 // Separa ícono y texto para poder mostrar solo el ícono cuando falta espacio
@@ -15907,7 +15994,7 @@ drawEntity=function(x,e,sel,ghost=false){
   if(!e||e.type!=='viewport'||x!==sceneCtx||sel||ghost||textScaleOverride!==null||_inVP||!app.d._ms)return _deP(x,e,sel,ghost);
   const w=x.canvas.width,h=x.canvas.height;
   const key=[e.x,e.y,e.w,e.h,e.center&&e.center.x,e.center&&e.center.y,e.scale,e.twist||0,(e.frozenLayers||[]).join('|'),e.layerId,e.color,
-    view.scale,view.offsetX,view.offsetY,w,h,tok(app.d),tok(app.d._ms.entities),app.d._modelRev||0,app.d._ms.entities.length,JSON.stringify(app.d.layers),forceWhiteToBlackOverride,lineWeightMinPxOverride,unitsSettings.lineTypeScale,e._layer&&e._layer.visible].join('§');
+    view.scale,view.offsetX,view.offsetY,w,h,tok(app.d),tok(app.d._ms.entities),app.d._modelRev||0,app.d._ms.entities.length,JSON.stringify(app.d.layers),forceWhiteToBlackOverride,lineWeightMinPxOverride,unitsSettings.lineTypeScale,unitsSettings.ltReal,unitsSettings.hideWipeouts,e._layer&&e._layer.visible].join('§');
   let c=vpCache.get(e);
   if(!c||c.key!==key){
     const cv=c&&c.cv&&c.cv.width===w&&c.cv.height===h?c.cv:document.createElement('canvas');cv.width=w;cv.height=h;
@@ -16810,7 +16897,7 @@ function build(d,ver){
   // ----- tablas nuevas -----
   const LT=new Writer(0);LT.nh=()=>W.nh();
   for(const t of ltUsed){
-    const pat=(typeof LINETYPE_PATTERNS_MM!=='undefined'&&LINETYPE_PATTERNS_MM[t])||[6,3];
+    const pat=(unitsSettings.ltPat&&unitsSettings.ltPat[t])||(typeof LINETYPE_PATTERNS_MM!=='undefined'&&LINETYPE_PATTERNS_MM[t])||[6,3];
     LT.g(0,'LTYPE');LT.g(5,W.nh());LT.g(330,TH.LTYPE||'2');LT.g(100,'AcDbSymbolTableRecord');LT.g(100,'AcDbLinetypeTableRecord');
     LT.g(2,DXF_LT[t]);LT.g(70,0);LT.g(3,enc(DXF_LT_DESC[t]||''));LT.g(72,65);LT.g(73,pat.length);
     LT.g(40,pat.reduce((a,b)=>a+b,0));pat.forEach((v,i)=>{LT.g(49,i%2===0?v:-v);LT.g(74,0)});
@@ -17649,7 +17736,7 @@ applyG(false);
 // =====================================================================================
 (function(){
 'use strict';
-const BUILD='1.9.1-rev18';
+const BUILD='1.9.1-rev19';
 const KEY='faciltrazo_mcp_v1';
 const PORTS=[47821,47822,47823,47824,47825];
 let S={on:false,token:'',port:0};
@@ -18828,6 +18915,82 @@ renderToolbar();
 })();
 
 // =====================================================================================
+
+// ========== rev21: PALETA DE COLORES ==========
+// Todos los selectores de color del programa (capas, administrador de capas, propiedades, cotas, achurado)
+// abren esta paleta de colores (como la de AutoCAD) en vez del selector nativo del navegador.
+(function(){
+  if(window.openColorPalette)return;
+  const STD=[[1,'Rojo'],[2,'Amarillo'],[3,'Verde'],[4,'Cian'],[5,'Azul'],[6,'Magenta'],[7,'Blanco'],[8,'Gris oscuro'],[9,'Gris claro']];
+  const hx=i=>'#'+ACI_HEX[i];
+  const nameOf=i=>{const s=STD.find(x=>x[0]===i);return s?s[1]:'Color '+i};
+  const sw=(i,big)=>`<span class="cp-sw${big?' big':''}" data-c="${hx(i)}" data-n="${nameOf(i)}" title="${nameOf(i)}" style="background:${hx(i)}"></span>`;
+  const st=document.createElement('style');
+  st.textContent='#cp-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:5000}'+
+   '#cp-overlay.visible{display:flex}'+
+   '.cp-box{background:#161b1e;border:1px solid #4cc2ff;border-radius:8px;padding:12px 14px;width:max-content;max-width:96vw;max-height:96vh;overflow:auto;color:#d8dde0;font:12px system-ui,Segoe UI,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.6)}'+
+   '.cp-title{display:flex;justify-content:space-between;align-items:center;gap:12px;font-weight:600;font-size:13px;margin-bottom:4px;color:#4cc2ff}'+
+   '.cp-x{background:none;border:0;color:#aab;font-size:20px;line-height:1;cursor:pointer}.cp-x:hover{color:#fff}'+
+   '.cp-sec{margin:8px 0 4px;color:#8fa0aa;font-size:11px}.cp-std{display:flex;gap:4px;flex-wrap:wrap}'+
+   '.cp-grid{display:grid;grid-template-columns:repeat(24,15px);gap:1px}'+
+   '.cp-sw{display:inline-block;width:15px;height:15px;box-sizing:border-box;border:1px solid rgba(255,255,255,.12);cursor:pointer;position:relative}'+
+   '.cp-sw.big{width:26px;height:22px;border-radius:3px;border:1px solid #55626a}'+
+   '.cp-sw:hover{outline:2px solid #fff;outline-offset:-1px;z-index:2}.cp-sw.on{outline:2px solid #4cc2ff;outline-offset:1px;z-index:3}'+
+   '.cp-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}'+
+   '.cp-cur{display:flex;align-items:center;gap:6px;min-width:190px}.cp-cur .cp-sw{cursor:default}.cp-cur .cp-sw:hover{outline:none}#cp-info{color:#aab;margin-left:4px}'+
+   '.cp-btns{display:flex;gap:6px}.cp-btn{background:#1b2226;color:#d8dde0;border:1px solid #55626a;border-radius:4px;padding:0 10px;height:26px;font-size:12px;cursor:pointer;display:inline-flex;align-items:center;position:relative}'+
+   '.cp-btn:hover{border-color:#fff}.cp-other input{position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;padding:0;border:0}';
+  document.head.appendChild(st);
+  let ov=null,cfg=null;
+  const norm=c=>String(c||'').toLowerCase();
+  function build(){
+    ov=document.createElement('div');ov.id='cp-overlay';
+    let a='',b='';
+    for(const off of [0,2,4,6,8])for(let c=0;c<24;c++)a+=sw(10+10*c+off);
+    for(const off of [1,3,5,7,9])for(let c=0;c<24;c++)b+=sw(10+10*c+off);
+    ov.innerHTML='<div class="cp-box" role="dialog" aria-label="Paleta de colores">'+
+      '<div class="cp-title"><span id="cp-title">Color</span><button type="button" class="cp-x" id="cp-close" title="Cerrar (Esc)">×</button></div>'+
+      '<div class="cp-sec">Colores estándar</div><div class="cp-std">'+STD.map(([i])=>sw(i,true)).join('')+'</div>'+
+      '<div class="cp-sec">Paleta de colores</div><div class="cp-grid">'+a+'</div><div class="cp-grid" style="margin-top:4px">'+b+'</div>'+
+      '<div class="cp-sec">Grises</div><div class="cp-std">'+[250,251,252,253,254,255].map(i=>sw(i,true)).join('')+'</div>'+
+      '<div class="cp-foot"><div class="cp-cur"><span class="cp-sw big" id="cp-old" title="Color actual"></span><span>→</span><span class="cp-sw big" id="cp-new" title="Color bajo el cursor"></span><span id="cp-info"></span></div>'+
+      '<div class="cp-btns"><button type="button" class="cp-btn" id="cp-bylayer" style="display:none">Por capa</button>'+
+      '<label class="cp-btn cp-other" title="Elegir un color que no está en la paleta">Otro color…<input type="color" id="cp-native" data-native="1"></label>'+
+      '<button type="button" class="cp-btn" id="cp-cancel">Cancelar</button></div></div></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('mousedown',e=>{if(e.target===ov)closeP()});
+    ov.querySelector('#cp-close').onclick=closeP;ov.querySelector('#cp-cancel').onclick=closeP;
+    ov.querySelector('#cp-bylayer').onclick=()=>pick('bylayer');
+    ov.querySelector('#cp-native').addEventListener('change',e=>pick(e.target.value));
+    ov.addEventListener('click',e=>{const s=e.target.closest('.cp-sw');if(s&&s.dataset.c)pick(s.dataset.c)});
+    ov.addEventListener('mouseover',e=>{const s=e.target.closest('.cp-sw');if(s&&s.dataset.c){ov.querySelector('#cp-new').style.background=s.dataset.c;ov.querySelector('#cp-info').textContent=s.dataset.n}});
+  }
+  function onKey(e){if(e.key==='Escape'){e.stopPropagation();e.preventDefault();closeP()}}
+  function closeP(){if(ov)ov.classList.remove('visible');cfg=null;document.removeEventListener('keydown',onKey,true)}
+  function pick(v){const f=cfg&&cfg.onPick;closeP();if(f)f(v)}
+  window.openColorPalette=function(opts){
+    opts=opts||{};if(!ov)build();cfg=opts;
+    const cur=norm(opts.value);
+    ov.querySelector('#cp-title').textContent=opts.title||'Seleccionar color';
+    ov.querySelectorAll('.cp-sw.on').forEach(x=>x.classList.remove('on'));
+    let found=false;ov.querySelectorAll('.cp-sw[data-c]').forEach(x=>{if(!found&&cur&&x.dataset.c===cur){x.classList.add('on');found=true}});
+    const oldS=ov.querySelector('#cp-old'),newS=ov.querySelector('#cp-new');
+    oldS.style.background=/^#/.test(cur)?cur:'transparent';newS.style.background=oldS.style.background;
+    ov.querySelector('#cp-info').textContent='';
+    if(/^#[0-9a-f]{6}$/.test(cur))ov.querySelector('#cp-native').value=cur;
+    ov.querySelector('#cp-bylayer').style.display=opts.byLayer?'':'none';
+    ov.classList.add('visible');document.addEventListener('keydown',onKey,true);
+  };
+  // Cualquier <input type="color"> del programa abre la paleta
+  document.addEventListener('click',ev=>{
+    const t=ev.target;if(!t||t.tagName!=='INPUT'||t.type!=='color'||t.dataset.native||t.disabled)return;
+    ev.preventDefault();
+    openColorPalette({value:t.value,title:t.title||'Seleccionar color',onPick:hex=>{
+      t.value=hex;t.dispatchEvent(new Event('input',{bubbles:true}));t.dispatchEvent(new Event('change',{bubbles:true}));
+    }});
+  },true);
+})();
+
 // ========== FácilTrazo v1.9.1: APLICACIÓN INSTALABLE (PWA) ==========
 // =====================================================================================
 // Cuando FácilTrazo se sirve desde su página publicada (https), se comporta como aplicación:
@@ -18892,6 +19055,36 @@ if(typeof ResizeObserver!=='undefined'){
   canvasResizeObserver.observe(canvasArea);
 }
 renderToolbar();
+
+// ========== rev19: TAPAS (wipeout) Y TIPOS DE LÍNEA A ESCALA REAL, COMO AUTOCAD ==========
+// Los planos DWG/DXF se abren como AutoCAD los dibuja: las tapas respetan el orden de dibujo y los tipos
+// de línea usan los patrones del propio archivo, sin agrandar las rayas. El botón «Tapas» las oculta o
+// muestra (se guarda con el dibujo). Los dibujos propios no cambian.
+// Los patrones del archivo están en unidades del modelo: valen en el modelo y dentro de los visores, no en el papel de las hojas
+function ltFileScaleActive(){try{return!inLayout()||_inVP}catch(e){return true}}
+function resetCadView(){unitsSettings.ltPat=null;unitsSettings.ltReal=false;unitsSettings.hideWipeouts=false;try{updateTapasBtn()}catch(e){}}
+function updateTapasBtn(){
+  const b=document.getElementById('btn-tapas');if(!b)return;
+  const on=!unitsSettings.hideWipeouts;
+  b.classList.toggle('active',on);
+  b.title=on?'Tapas (wipeout) visibles, como en AutoCAD. Clic para ocultarlas y ver lo que tapan.':'Tapas (wipeout) ocultas. Clic para mostrarlas como en AutoCAD.';
+}
+function countWipeouts(){
+  let n=0;const lists=[app.d.entities];if(app.d._ms&&app.d._ms.entities!==app.d.entities)lists.push(app.d._ms.entities);
+  for(const E of lists)for(let i=0;i<E.length;i++){const e=E[i];if(e.type==='hatch'&&e.mask)n++}
+  return n;
+}
+(function(){
+  const b=document.getElementById('btn-tapas');if(!b)return;
+  b.onclick=()=>{
+    const n=countWipeouts();
+    if(!n){setMsg('Este dibujo no tiene tapas (wipeout).');return}
+    unitsSettings.hideWipeouts=!unitsSettings.hideWipeouts;
+    updateTapasBtn();render();
+    setMsg(unitsSettings.hideWipeouts?`Tapas ocultas (${n.toLocaleString('es-CL')}): se ve lo que había debajo.`:`Tapas visibles (${n.toLocaleString('es-CL')}), como en AutoCAD.`);
+  };
+  updateTapasBtn();
+})();
 renderPanels();
 setTool('select'); // antes app.tool quedaba en null hasta el primer uso; ahora arranca ya lista
 resizeCanvas();
