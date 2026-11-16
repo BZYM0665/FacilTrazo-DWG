@@ -289,7 +289,7 @@ body.resizing-v{cursor:row-resize;user-select:none}
 <div class="app">
   <div class="topbar">
     <div class="logo-wrapper">
-      <div class="logo" id="logo-btn" title="Menú de archivo: Nuevo, Guardar, Guardar como, Abrir (también DWG y DXF), Mis dibujos">FácilTrazo <span class="version" id="app-version" title="Versión del programa: 1.9.1-rev21">v1.9.1 · rev21</span><span class="logo-filename" id="logo-filename"></span></div>
+      <div class="logo" id="logo-btn" title="Menú de archivo: Nuevo, Guardar, Guardar como, Abrir (también DWG y DXF), Mis dibujos">FácilTrazo <span class="version" id="app-version" title="Versión del programa: 1.9.1-rev21b">v1.9.1 · rev21b</span><span class="logo-filename" id="logo-filename"></span></div>
       <div class="logo-menu" id="logo-menu">
         <div class="logo-menu-filename" id="logo-menu-filename"></div>
         <div class="logo-menu-item" data-action="new"><span class="icon">🆕</span> Nuevo dibujo</div>
@@ -9101,6 +9101,10 @@ serializeDocument=function(d){
 // ========== ABRIR / IMPORTAR PLANOS DWG Y DXF ==========
 // =====================================================================================
 let _dwgModuleReady=false;
+// El lector DWG va en un segundo bloque de script al final de la página. Si el sistema abre un plano al lanzar el programa
+// (doble clic en un .dwg), este código puede ejecutarse antes de que ese script termine de cargar y fallaba con
+// "DWG_WASM_B64 is not defined". El evento 'load' se dispara recién cuando todos los scripts ya se ejecutaron.
+function esperarCargaCompleta(){return document.readyState==='complete'?Promise.resolve():new Promise(r=>window.addEventListener('load',()=>r(),{once:true}))}
 function ensureDwgModule(){
   if(_dwgModuleReady)return;
   const bin=atob(DWG_WASM_B64);const bytes=new Uint8Array(bin.length);
@@ -9129,7 +9133,7 @@ async function readCadFileToDxfText(file){
     const OLD={AC1001:1,AC1002:1,AC1003:1,AC1004:1,AC1006:1,AC1009:1};
     if(OLD[ver])throw new Error('Ese DWG es de una versión muy antigua ('+ver+'). Ábralo en un CAD y guárdelo como DWG 2000 o posterior, o como DXF.');
     showBusy('Convirtiendo el DWG… (los planos grandes pueden tardar unos segundos)');await nextFrame();
-    ensureDwgModule();
+    await esperarCargaCompleta();ensureDwgModule();
     let dxf;
     try{dxf=DWGDXF.convertDwgToDxf(buf)}catch(err){throw new Error('No se pudo leer el DWG ('+ver+'): '+(err&&err.message?err.message:err))}
     return{text:decodeDxfBytes(dxf),kind:'DWG',ver};
