@@ -107,17 +107,6 @@ body.resizing-v{cursor:row-resize;user-select:none}
 .layer-combo-btn:hover{border-color:#4cc2ff}
 .lc-label{flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lc-swatch{display:inline-block;width:12px;height:12px;border-radius:2px;border:1px solid #555;flex-shrink:0}
-.lc-arrow{color:#6b7680}
-.layer-combo-menu{display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:200;background:#1a1f22;border:1px solid #4cc2ff;border-radius:6px;padding:6px;width:300px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
-.layer-combo-menu.visible{display:block}
-.lc-list{max-height:360px;overflow-y:auto}
-.lc-hint{font-size:11px;color:#f59e0b;padding:2px 4px 6px}
-.lc-item{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:3px;cursor:pointer;font-size:12px}
-.lc-item:hover{background:#2d363b}
-.lc-item.active{background:#12445c}
-.lc-item.hidden .lc-name{opacity:.5}
-.lc-eye,.lc-lock{font-size:11px;cursor:pointer}
-.lc-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .modal.lm-modal{max-width:960px;width:92vw;min-width:0}
 .lm-bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px}
 .lm-bar .layer-search{width:220px;margin:0}
@@ -887,7 +876,6 @@ const LINETYPES=[
   {value:'hidden',label:'Oculta'},
   {value:'phantom',label:'Fantasma'}
 ];
-const LINETYPE_ABBR={continuous:'Cont.',dashed:'Guion.',dot:'Punt.',dashdot:'P-raya',center:'Centro',hidden:'Oculta',phantom:'Fantsm'};
 // Patrón [raya,espacio,raya,espacio,...] en mm de mundo. Un valor 0 dibuja un PUNTO redondo real
 // (se activa lineCap='round' solo cuando el patrón lo necesita — ver getLineDashPixels/drawEntity).
 const LINETYPE_PATTERNS_MM={
@@ -1622,14 +1610,6 @@ function generateHatchDotGrid(boundaryPoints,spacing){
     }
   }
   return dots;
-}
-function hatchBBox(points){
-  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-  for(const p of points){
-    if(p.x<minX)minX=p.x;if(p.y<minY)minY=p.y;
-    if(p.x>maxX)maxX=p.x;if(p.y>maxY)maxY=p.y;
-  }
-  return{minX,minY,maxX,maxY};
 }
 
 function hitTestEntityPixels(e,wx,wy,tolPixels){
@@ -4240,10 +4220,6 @@ document.getElementById('layer-cancel').onclick=closeLayerModal;
 document.getElementById('layer-modal').onclick=e=>{
   if(e.target.id==='layer-modal')closeLayerModal();
 };
-
-function startLayerRename(lid){
-  openLayerModal(lid);
-}
 
 // ========== PANEL DE PROPIEDADES CON BYLAYER ==========
 function renderPropsPanel(){
@@ -7845,7 +7821,6 @@ const CadImport=(function(){
   }
 
   // ---------- Matrices afines 2D: [a,b,c,d,e,f] → x'=a·x+c·y+e, y'=b·x+d·y+f ----------
-  const ID=[1,0,0,1,0,0];
   function mul(m,k){return[m[0]*k[0]+m[2]*k[1],m[1]*k[0]+m[3]*k[1],m[0]*k[2]+m[2]*k[3],m[1]*k[2]+m[3]*k[3],m[0]*k[4]+m[2]*k[5]+m[4],m[1]*k[4]+m[3]*k[5]+m[5]]}
   function tp(m,x,y){return{x:m[0]*x+m[2]*y+m[4],y:m[1]*x+m[3]*y+m[5]}}
   function tv(m,x,y){return{x:m[0]*x+m[2]*y,y:m[1]*x+m[3]*y}}
@@ -8152,7 +8127,6 @@ const CadImport=(function(){
       }).join('\n');
     }
     const styleOf=(name)=>S.styles[String(name||'STANDARD').toUpperCase()]||{font:'',wf:1};
-    const CHAR_W=0.6;
     let hatchGroupSeq=0;
     function emitHatch(M,rings,pattern,angle,spacing,cm,ctx,hstyle){
       const R=rings.filter(r=>r.length>=3).map(r=>r.map(p=>tp(M,p.x,p.y)));
@@ -8726,8 +8700,8 @@ const CadImport=(function(){
     processList(S.entities,SC,{blockLayer:null,color:'bylayer',lt:'bylayer',lw:'bylayer',group:null},0);
     sortByDrawOrder(out);
     // rev20: las tapas (wipeout) de los bloques de arquitectura NO tapan las capas de climatización (CL-*).
-    // Así lo muestra DWG TrueView/AutoCAD en este plano (puertas y ventanas): los muros se ocultan bajo la
-    // tapa, pero ductos, cañerías y sus textos se ven completos aunque en el orden del archivo vayan antes.
+    // Así lo muestra DWG TrueView/AutoCAD: los muros se ocultan bajo la tapa, pero las instalaciones
+    // y sus textos se ven completos aunque en el orden del archivo vayan antes.
     // Se resuelve sin tocar las figuras: las CL-* anteriores a una tapa que las toca se dibujan justo después.
     function liftHvacOverMasks(arr){
       const isHv=e=>/^CL-/i.test(e.layerId||'');
@@ -9278,7 +9252,6 @@ function pickFile(accept,cb){
   i.click();
 }
 function doImportCad(mode){pickFile('.dwg,.dxf',f=>startCadImport(f,mode||'insert'))}
-const _doOpen0=doOpen;
 doOpen=function(){
   pickFile('.json,.dwg,.dxf',f=>{
     const ext=(f.name.split('.').pop()||'').toLowerCase();
@@ -10531,14 +10504,6 @@ function selectionLayerId(){
   const ids=new Set();for(const id of app.d.selection){const e=entById(app.d,id);if(e)ids.add(e.layerId);if(ids.size>1)return null}
   return ids.size===1?[...ids][0]:null;
 }
-function moveSelectionToLayer(layerId){
-  const L=app.d.layers.find(l=>l.id===layerId);if(!L)return;
-  const before=[],after=[];
-  for(const id of app.d.selection){const e=entById(app.d,id);if(!e||e.layerId===layerId)continue;before.push(cloneEnt(e));const g=cloneEnt(e);g.layerId=layerId;after.push(g)}
-  if(!after.length){setMsg(`Las figuras ya están en "${L.name}"`);return}
-  executeCommand(app.d,new GenericEditCommand(app.d,before,after));onChange();
-  setMsg(`${after.length} figura(s) pasadas a la capa "${L.name}"`);
-}
 function updateLayerCombo(){
   const w=document.getElementById('layer-combo');if(!w)return;
   const sel=app.d.selection.length;let id=sel?selectionLayerId():app.d.activeLayerId;
@@ -11009,7 +10974,7 @@ triggerDownload=function(blob,filename){
 
 
 // =====================================================================================
-// ========== FácilTrazo v1.6: correcciones encontradas dibujando una mesa real ==========
+// ========== FácilTrazo v1.6: correcciones encontradas dibujando una pieza de prueba ==========
 // =====================================================================================
 
 // ---------- 1) Tipos de línea visibles a cualquier zoom ----------
@@ -14034,7 +13999,7 @@ const panel=document.createElement('div');panel.id='mk-panel';
 panel.innerHTML=`<div class="mk-head"><span>🔎 Cubicación y revisión</span><button id="mk-close" title="Cerrar">✕</button></div>
 <div class="mk-body">
  <div><div class="mk-sec-t">Buscar en el plano</div>
-  <input type="text" id="mk-q" placeholder="Ej: RI, CL-FC, Ducto..." autocomplete="off" spellcheck="false">
+  <input type="text" id="mk-q" placeholder="Ej: Puerta, Ducto, Rejilla..." autocomplete="off" spellcheck="false">
   <label class="mk-chk" style="margin-top:5px;color:#8a979f" title="Desactivado: busca la palabra completa (RI encuentra “RI 15x10” pero no “escritorio”). Activado: busca el texto en cualquier parte."><input type="checkbox" id="mk-partial"> Coincidencia parcial (dentro de palabras)</label>
   <div id="mk-res"></div></div>
  <div><div class="mk-sec-t">Mediciones</div>
@@ -16012,7 +15977,7 @@ const _rPerf=render;
 render=function(){_rPerf();drawSelOverlay()};
 })();
 
-// ===== Correcciones encontradas al dibujar una vivienda completa de prueba (v1.9.1) =====
+// ===== Correcciones encontradas al dibujar un plano completo de prueba (v1.9.1) =====
 (function(){
 const _st=window.setTimeout.bind(window);
 
@@ -18478,7 +18443,7 @@ OPS.abrir=async a=>{
 OPS.nuevo=async()=>{doNew();setMsg('🤖 IA: dibujo nuevo');return OPS.estado()};
 
 // ---------- Conexión (WebSocket hacia el servidor MCP local) ----------
-let ws=null,timer=null,delay=1500,state='off',stateInfo=null,denyReason='',flashT=null,gen=0,lastOk=0,repaintT=null;
+let ws=null,timer=null,delay=1500,state='off',stateInfo=null,flashT=null,gen=0,lastOk=0,repaintT=null;
 const badge=document.createElement('div');badge.id='ft-ia-badge';
 const area=document.querySelector('.canvas-area');if(area)area.appendChild(badge);
 const css=document.createElement('style');
