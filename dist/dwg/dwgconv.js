@@ -1,6 +1,23 @@
 /* @ts-self-types="./dwgconv.d.ts" */
 
 /**
+ * Punto de entrada para el navegador: DWG (bytes) -> DXF (bytes de texto).
+ * @param {Uint8Array | number[]} dwg
+ * @returns {Uint8Array}
+ */
+export function dwg_to_dxf(dwg) {
+    const ptr0 = passArray8ToWasm0(dwg, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.dwg_to_dxf(ptr0, len0);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v2;
+}
+
+/**
  * Punto de entrada para el navegador.
  * @param {Uint8Array | number[]} dxf
  * @param {string} version

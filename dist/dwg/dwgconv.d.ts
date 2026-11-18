@@ -2,6 +2,11 @@
 /* eslint-disable */
 
 /**
+ * Punto de entrada para el navegador: DWG (bytes) -> DXF (bytes de texto).
+ */
+export function dwg_to_dxf(dwg: Uint8Array | number[]): Uint8Array;
+
+/**
  * Punto de entrada para el navegador.
  */
 export function dxf_to_dwg(dxf: Uint8Array | number[], version: string): Uint8Array;
@@ -10,13 +15,14 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
+    readonly dwg_to_dxf: (a: number, b: number) => [number, number, number, number];
     readonly dxf_to_dwg: (a: number, b: number, c: number, d: number) => [number, number, number, number];
     readonly __externref_table_alloc: () => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_free: (a: number, b: number, c: number) => void;
-    readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __externref_table_dealloc: (a: number) => void;
+    readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_start: () => void;
 }
 
