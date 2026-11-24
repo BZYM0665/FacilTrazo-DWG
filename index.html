@@ -289,7 +289,7 @@ body.resizing-v{cursor:row-resize;user-select:none}
 <div class="app">
   <div class="topbar">
     <div class="logo-wrapper">
-      <div class="logo" id="logo-btn" title="Menú de archivo: Nuevo, Guardar, Guardar como, Abrir (también DWG y DXF), Mis dibujos">FácilTrazo <span class="version" id="app-version" title="Versión del programa: 1.9.1-rev22">v1.9.1 · rev22</span><span class="logo-filename" id="logo-filename"></span></div>
+      <div class="logo" id="logo-btn" title="Menú de archivo: Nuevo, Guardar, Guardar como, Abrir (también DWG y DXF), Mis dibujos">FácilTrazo <span class="version" id="app-version" title="Versión del programa: 1.9.1-rev23d">v1.9.1 · rev23d</span><span class="logo-filename" id="logo-filename"></span></div>
       <div class="logo-menu" id="logo-menu">
         <div class="logo-menu-filename" id="logo-menu-filename"></div>
         <div class="logo-menu-item" data-action="new"><span class="icon">🆕</span> Nuevo dibujo</div>
@@ -692,7 +692,7 @@ body.resizing-v{cursor:row-resize;user-select:none}
     <div class="modal-field">
       <label>Nombre del archivo</label>
       <input type="text" id="saveas-filename" maxlength="120" placeholder="faciltrazo">
-      <div class="hint">Se agrega ".json" automáticamente si no lo escribe. Al presionar "Guardar", si el navegador tiene activada la opción "Preguntar dónde guardar cada archivo", va a poder elegir la carpeta — use la misma carpeta y el mismo nombre para reemplazar una versión anterior en vez de acumular copias.</div>
+      <div class="hint">Se agrega ".dft" automáticamente si no lo escribe. Al presionar "Guardar", si el navegador tiene activada la opción "Preguntar dónde guardar cada archivo", va a poder elegir la carpeta — use la misma carpeta y el mismo nombre para reemplazar una versión anterior en vez de acumular copias.</div>
     </div>
     <div class="modal-buttons">
       <button class="modal-btn" id="saveas-cancel">Cancelar</button>
@@ -3469,7 +3469,7 @@ function createDimInstance(toolId){
   return null;
 }
 
-const DEFAULT_FILENAME='faciltrazo.json';
+const DEFAULT_FILENAME='faciltrazo.dft';
 const app={d:createDocument(),activeTool:'select',tool:null,snap:null,mouse:{x:0,y:0,world:{x:0,y:0}},orthoMode:false,crosshairMode:false,currentFileName:DEFAULT_FILENAME};
 const canvas=document.getElementById('canvas'),ctx=canvas.getContext('2d'),canvasArea=document.getElementById('canvas-area'),panIndicator=document.getElementById('pan-indicator');
 
@@ -4828,7 +4828,7 @@ function doSave(){
 
 function openSaveAsModal(){
   const input=document.getElementById('saveas-filename');
-  input.value=app.currentFileName.replace(/\.json$/i,'');
+  input.value=app.currentFileName.replace(/\.(json|dft)$/i,'');
   document.getElementById('saveas-modal').classList.add('visible');
   setTimeout(()=>{input.focus();input.select();},50);
 }
@@ -4839,7 +4839,7 @@ function confirmSaveAs(){
   const input=document.getElementById('saveas-filename');
   let name=sanitizeFileName(input.value);
   if(!name){setMsg('Ingrese un nombre de archivo válido');return}
-  if(!/\.json$/i.test(name))name+='.json';
+  if(!/\.(dft|json)$/i.test(name))name+='.dft';
   app.currentFileName=name;
   updateFileNameDisplay();
   closeSaveAsModal();
@@ -4848,7 +4848,7 @@ function confirmSaveAs(){
 
 function doOpen(){
   const i=document.createElement('input');
-  i.type='file';i.accept='.json';
+  i.type='file';i.accept='.dft,.ftz';
   i.onchange=ev=>{
     const f=ev.target.files[0];
     if(!f)return;
@@ -5983,7 +5983,7 @@ function loadFromLibrary(id){
     // el nombre "actual" se deriva del nombre con que se guardó en la biblioteca — si después se
     // usa "Guardar", va a descargar con ese nombre en vez de arrastrar el de otro dibujo previo.
     const libItem=getLibraryIndex().find(x=>x.id===id);
-    app.currentFileName=libItem?sanitizeFileName(libItem.name)+'.json':DEFAULT_FILENAME;
+    app.currentFileName=libItem?sanitizeFileName(libItem.name)+'.dft':DEFAULT_FILENAME;
     updateFileNameDisplay();
     onChange();
     closeLibraryModal();
@@ -9150,12 +9150,15 @@ async function readCadFileToDxfText(file){
 }
 let importContext=null;
 async function startCadImport(file,mode){
+  const srcH=window.__ftOpenHandle||null;window.__ftOpenHandle=null;   // rev23: archivo de origen (para Guardar)
   try{
     showBusy('Leyendo '+file.name+'…');await nextFrame();
     const r=await readCadFileToDxfText(file);
+    // rev23: si lo guardó FácilTrazo y no se tocó fuera, se recupera el documento completo
+    if(mode==='open'&&typeof window.__ftPayloadOpen==='function'){let hecho=false;try{hecho=await window.__ftPayloadOpen(r.text,file,srcH)}catch(e5){console.warn('Paquete FácilTrazo:',e5)}if(hecho){hideBusy();return}}
     const info=CadImport.inspect(r.text);
     hideBusy();
-    importContext={file,mode,text:r.text,kind:r.kind,info,lector:r.lector};
+    importContext={file,mode,text:r.text,kind:r.kind,info,lector:r.lector,handle:srcH};
     openImportModal();
   }catch(err){
     hideBusy();
@@ -9240,7 +9243,8 @@ function applyCadImport(res,c,unit,mode){
     d.units=JSON.parse(JSON.stringify(unitsSettings));
     updateUnitsIndicator();
     app.d=d;
-    app.currentFileName=sanitizeFileName(baseName)+'.json';
+    app.currentFileName=sanitizeFileName(baseName)+'.dft';
+    try{if(c.handle)Object.defineProperty(d,'__src',{value:c.handle,writable:true,configurable:true,enumerable:false})}catch(e6){}
     updateFileNameDisplay();
     if(app.tool&&app.tool.cancel)app.tool.cancel();
     setTool('select');
@@ -9265,12 +9269,12 @@ function pickFile(accept,cb){
 }
 function doImportCad(mode){pickFile('.dwg,.dxf',f=>startCadImport(f,mode||'insert'))}
 doOpen=function(){
-  pickFile('.json,.dwg,.dxf',f=>{
+  pickFile('.dft,.ftz,.dwg,.dxf',f=>{
     const ext=(f.name.split('.').pop()||'').toLowerCase();
     if(ext==='dwg'||ext==='dxf'){startCadImport(f,'open');return}
     const r=new FileReader();
     r.onload=()=>{
-      try{app.d=deserializeDocument(r.result);app.currentFileName=f.name;updateFileNameDisplay();onChange();zoomExtents();setMsg('Abierto: '+f.name)}
+      try{app.d=deserializeDocument(r.result);app.currentFileName=f.name.replace(/\.(json|ftz)$/i,'.dft');updateFileNameDisplay();onChange();zoomExtents();setMsg('Abierto: '+f.name)}
       catch(e){setMsg('Error: '+e.message)}
     };
     r.readAsText(f);
@@ -9284,8 +9288,8 @@ canvasArea.addEventListener('drop',e=>{
   const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(!f)return;
   const ext=(f.name.split('.').pop()||'').toLowerCase();
   if(ext==='dwg'||ext==='dxf')startCadImport(f,app.d.entities.length?'insert':'open');
-  else if(ext==='json'){const r=new FileReader();r.onload=()=>{try{app.d=deserializeDocument(r.result);app.currentFileName=f.name;updateFileNameDisplay();onChange();zoomExtents();setMsg('Abierto: '+f.name)}catch(err){setMsg('Error: '+err.message)}};r.readAsText(f)}
-  else setMsg('Formato no reconocido: se pueden abrir archivos .json (FácilTrazo), .dwg y .dxf');
+  else if(ext==='json'||ext==='dft'||ext==='ftz'){const r=new FileReader();r.onload=()=>{try{app.d=deserializeDocument(r.result);app.currentFileName=f.name.replace(/\.(json|ftz)$/i,'.dft');updateFileNameDisplay();onChange();zoomExtents();setMsg('Abierto: '+f.name)}catch(err){setMsg('Error: '+err.message)}};r.readAsText(f)}
+  else setMsg('Formato no reconocido: se pueden abrir archivos .dft (FácilTrazo), .dwg y .dxf');
 });
 
 
@@ -11908,6 +11912,11 @@ drawEntity=function(x,e,sel,ghost=false){
           x.translate(cx,cy);x.rotate(-e.twist);x.translate(-cx,-cy);
           q=[cx-R,cy-R,2*R,2*R];
         }
+        // rev23: si la ventana se creó marcando una zona del Modelo, solo se ve esa zona (no las piezas vecinas)
+        if(e.zone&&e.zoneClip!==false){
+          const za=worldToScreen(e.zone.minX,e.zone.maxY),zb=worldToScreen(e.zone.maxX,e.zone.minY);
+          x.beginPath();x.rect(Math.min(za.x,zb.x),Math.min(za.y,zb.y),Math.abs(zb.x-za.x),Math.abs(zb.y-za.y));x.clip();
+        }
         drawEntitiesPass(x,cw,ch,q);
       });
     }catch(err){console.warn('Ventana de hoja:',err)}
@@ -12232,7 +12241,8 @@ applyCadImport=function(res,c,unit,mode){
   });
   renderSpaceTabs();
   const nv=d.layouts.reduce((s,L)=>s+L.entities.filter(e=>e.type==='viewport').length,0);
-  _importLayoutNote=' · Hojas: '+d.layouts.map(L=>L.name).join(', ')+' ('+nv+' ventana'+(nv===1?'':'s')+') en las pestañas de abajo';
+  const _fuera=d.layouts.map(L=>{const tot=L.entities.filter(e=>e.type==='viewport').length;const n=_vpFueraDelPapel(L.sheet,L.entities);return n?L.name+' ('+n+' de '+tot+')':null}).filter(Boolean);
+  _importLayoutNote=' · Hojas: '+d.layouts.map(L=>L.name).join(', ')+' ('+nv+' ventana'+(nv===1?'':'s')+') en las pestañas de abajo'+(_fuera.length?' · ⚠ Ventanas fuera del papel en '+_fuera.join(', ')+': así viene en el archivo (en AutoCAD también). En la hoja: 📄 Hoja… › Ajustar el papel a lo que hay dibujado':'');
   return n;
 };
 
@@ -12338,6 +12348,7 @@ TOOLS.viewport={cls:ViewportTool,label:'▭ Ventana de hoja'};
 .sp-btn{background:#232a2e;color:#d8dde0;border:1px solid #2f383d;border-radius:4px;padding:2px 9px;font-size:11px;cursor:pointer}
 .sp-btn:hover{border-color:#4cc2ff}.sp-btn.active{background:#12445c;border-color:#4cc2ff;color:#fff}
 .sp-info{color:#7f8b92;font-size:11px;margin-right:6px}
+.sp-warn{color:#e8a33d;font-size:11px;margin-right:8px;cursor:help}
 .sp-rename{background:#0e1113;color:#fff;border:1px solid #4cc2ff;font-size:12px;width:120px}
 .vp-props select,.vp-props input[type=text]{background:#0e1113;color:#d8dde0;border:1px solid #2f383d;border-radius:3px;padding:2px 4px;font-size:11px}
 .vp-props .vp-row{display:flex;align-items:center;gap:6px;margin:4px 0;font-size:11px;color:#c7ced3}
@@ -12363,6 +12374,9 @@ TOOLS.viewport={cls:ViewportTool,label:'▭ Ventana de hoja'};
     <div class="modal-field"><label>Orientación</label>
       <div class="radio-group"><label><input type="radio" name="sheet-orient" value="h" checked> Horizontal</label><label><input type="radio" name="sheet-orient" value="v"> Vertical</label></div>
     </div>
+    <div class="modal-field" id="sheet-fit-row" style="display:none"><label>Papel y contenido</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="modal-btn" id="sheet-fit" type="button">Ajustar el papel a lo que hay dibujado</button><button class="modal-btn" id="sheet-fit-undo" type="button" style="display:none">↩ Volver al papel anterior</button></div>
+      <div class="hint" id="sheet-fit-hint"></div></div>
     <div class="modal-field" id="sheet-frame-row"><div class="radio-group"><label><input type="checkbox" id="sheet-frame" checked> Dibujar marco y rótulo (PROYECTO, CONTENIDO, ESCALA, FECHA, UNIDAD, LÁMINA)</label></div></div>
     <div class="hint" id="sheet-hint">La hoja se dibuja en mm de papel. Después ponga una o más "▭ Ventanas" para mostrar el modelo a escala.</div>
     <div class="modal-buttons"><button class="modal-btn" id="sheet-cancel">Cancelar</button><button class="modal-btn primary" id="sheet-accept">Crear hoja</button></div>
@@ -12394,6 +12408,8 @@ TOOLS.viewport={cls:ViewportTool,label:'▭ Ventana de hoja'};
   document.getElementById('sheet-accept').onclick=()=>acceptSheetModal();
   document.getElementById('vp-cancel').onclick=()=>{document.getElementById('vp-modal').classList.remove('visible');_vpPending=null;render()};
   document.getElementById('vp-accept').onclick=()=>acceptViewportModal();
+  document.getElementById('sheet-fit').onclick=()=>{document.getElementById('sheet-modal').classList.remove('visible');fitSheetToContent()};
+  document.getElementById('sheet-fit-undo').onclick=()=>{document.getElementById('sheet-modal').classList.remove('visible');undoFitSheet()};
   for(const id of['sheet-modal','vp-modal']){
     document.getElementById(id).addEventListener('keydown',e=>{
       if(e.key==='Enter'){e.preventDefault();e.stopPropagation();(id==='sheet-modal'?acceptSheetModal:acceptViewportModal)()}
@@ -12405,6 +12421,47 @@ TOOLS.viewport={cls:ViewportTool,label:'▭ Ventana de hoja'};
   bar.addEventListener('dblclick',onTabsDblClick);
   resizeCanvas();
 })();
+// ---------- rev23b: papel de la hoja frente a lo dibujado ----------
+// Un DWG puede traer ventanas que no caben en su papel (ej. A4 de 297 × 210 mm con ventanas de 960 mm). AutoCAD las muestra igual,
+// fuera del papel; aquí se avisa y se ofrece ajustar el papel (solo el papel: lo dibujado no se mueve).
+function _layoutContentBox(ents){
+  let a=Infinity,b=Infinity,c=-Infinity,d=-Infinity;
+  for(const e of ents||[]){
+    let bb=null;
+    if(e.type==='viewport')bb=[e.x,e.y,e.x+e.w,e.y+e.h];
+    else{try{bb=computeEntityBBox(e)}catch(err){}}
+    if(!bb||!isFinite(bb[0])||!isFinite(bb[1])||!isFinite(bb[2])||!isFinite(bb[3]))continue;
+    if(bb[0]<a)a=bb[0];if(bb[1]<b)b=bb[1];if(bb[2]>c)c=bb[2];if(bb[3]>d)d=bb[3];
+  }
+  return isFinite(a)?{minX:a,minY:b,maxX:c,maxY:d}:null;
+}
+function _vpFueraDelPapel(S,ents){
+  if(!S)return 0;
+  const tol=1;let n=0;
+  for(const e of ents||[]){
+    if(e.type!=='viewport')continue;
+    if(e.x<S.x-tol||e.y<S.y-tol||e.x+e.w>S.x+S.w+tol||e.y+e.h>S.y+S.h+tol)n++;
+  }
+  return n;
+}
+function fitSheetToContent(){
+  const L=curLayout();
+  if(!L){setMsg('Entre a una hoja (pestaña de abajo) para ajustar su papel');return}
+  const B=_layoutContentBox(app.d.entities);
+  if(!B){setMsg('La hoja está vacía: no hay nada a qué ajustar el papel');return}
+  const m=10;
+  const antes=sheetLabel(L.sheet);
+  try{Object.defineProperty(L,'_sheetPrev',{value:{...L.sheet,margins:L.sheet.margins?{...L.sheet.margins}:null},writable:true,configurable:true,enumerable:false})}catch(err){}
+  L.sheet={x:B.minX-m,y:B.minY-m,w:(B.maxX-B.minX)+2*m,h:(B.maxY-B.minY)+2*m,margins:null,paperName:''};
+  renderSpaceTabs();onChange();fitSheet();
+  setMsg('Papel de "'+L.name+'" ajustado a lo dibujado: '+sheetLabel(L.sheet)+' (antes '+antes+'). Para volver: 📄 Hoja… › «Volver al papel anterior», o elija un tamaño normal.');
+}
+function undoFitSheet(){
+  const L=curLayout();if(!L||!L._sheetPrev)return;
+  L.sheet={...L._sheetPrev};L._sheetPrev=null;
+  renderSpaceTabs();onChange();fitSheet();
+  setMsg('Papel de "'+L.name+'" devuelto a '+sheetLabel(L.sheet));
+}
 let _sheetModalMode=null;
 function openSheetModal(mode){
   _sheetModalMode=mode;
@@ -12420,14 +12477,31 @@ function openSheetModal(mode){
   document.querySelectorAll('#sheet-sizes .sheet-opt').forEach(x=>x.classList.toggle('active',x.dataset.id===id));
   document.querySelector(`input[name="sheet-orient"][value="${v?'v':'h'}"]`).checked=true;
   document.getElementById('sheet-hint').textContent=isEdit?'Cambiar el tamaño no mueve lo dibujado en la hoja; el marco y el rótulo se ajustan a mano si hace falta.':'La hoja se dibuja en mm de papel. Después ponga una o más "▭ Ventanas" para mostrar el modelo a escala.';
+  {
+    // rev23b: ajustar el papel a lo dibujado (solo al configurar una hoja que ya existe)
+    const fr=document.getElementById('sheet-fit-row');fr.style.display=isEdit?'':'none';
+    if(isEdit){
+      const nF=_vpFueraDelPapel(L.sheet,app.d.entities);
+      document.getElementById('sheet-fit-hint').textContent=(nF?'⚠ '+nF+' ventana'+(nF===1?'':'s')+' de esta hoja queda'+(nF===1?'':'n')+' fuera del papel (así puede venir en un DWG). ':'')+'Cambia solo el tamaño y la posición del papel para que quepa todo lo que hay en la hoja, con 10 mm de margen. No mueve ni modifica lo dibujado.';
+      document.getElementById('sheet-fit-undo').style.display=L._sheetPrev?'':'none';
+    }
+  }
   document.getElementById('sheet-modal').classList.add('visible');
   setTimeout(()=>{const i=document.getElementById('sheet-name');i.focus();i.select()},30);
 }
 function acceptSheetModal(){
   const o=document.querySelector('#sheet-sizes .sheet-opt.active');
-  const z=SHEET_SIZES.find(s=>o&&s.id===o.dataset.id)||SHEET_SIZES[1];
   const v=document.querySelector('input[name="sheet-orient"]:checked').value==='v';
-  const w=v?z.h:z.w,h=v?z.w:z.h;
+  const L0=curLayout();
+  let w,h;
+  if(!o&&_sheetModalMode==='edit'&&L0){
+    // rev23b: papel que no es un tamaño normal (ej. ajustado a lo dibujado): se conserva su tamaño; solo se respeta la orientación
+    const S0=L0.sheet;const v0=S0.h>S0.w;
+    if(v===v0){w=S0.w;h=S0.h}else{w=S0.h;h=S0.w}
+  }else{
+    const z=SHEET_SIZES.find(s=>o&&s.id===o.dataset.id)||SHEET_SIZES[1];
+    w=v?z.h:z.w;h=v?z.w:z.h;
+  }
   const name=(document.getElementById('sheet-name').value||'').trim()||'Layout';
   document.getElementById('sheet-modal').classList.remove('visible');
   const L=curLayout();
@@ -12481,7 +12555,7 @@ function renderSpaceTabs(){
   h+=`<button class="sp-add" id="sp-add" title="Nueva hoja de presentación (A4…A0) con marco y rótulo">＋</button>`;
   if(cur!=='model'){
     const L=curLayout();
-    h+=`<span class="sp-tools"><span class="sp-info">${sheetLabel(L&&L.sheet)}</span><button class="sp-btn${app.activeTool==='viewport'?' active':''}" id="sp-vp" title="Crear una ventana que muestra el modelo a escala (2 esquinas)">▭ Ventana</button><button class="sp-btn" id="sp-setup" title="Tamaño y orientación del papel, nombre de la hoja">📄 Hoja…</button><button class="sp-btn" id="sp-pdf" title="Exportar esta hoja a PDF del tamaño exacto del papel (para imprimir a escala, al 100 %)">🖨 PDF</button></span>`;
+    h+=`<span class="sp-tools"><span class="sp-info">${sheetLabel(L&&L.sheet)}</span>${(()=>{const nF=L?_vpFueraDelPapel(L.sheet,app.d.entities):0;return nF?`<span class="sp-warn" title="${nF} ventana${nF===1?'':'s'} de esta hoja queda${nF===1?'':'n'} fuera del papel. Así puede venir en un DWG (AutoCAD también las muestra fuera). Para ver la lámina completa: 📄 Hoja… › Ajustar el papel a lo que hay dibujado.">⚠ ${nF} ventana${nF===1?'':'s'} fuera del papel</span>`:''})()}<button class="sp-btn${app.activeTool==='viewport'?' active':''}" id="sp-vp" title="Crear una ventana que muestra el modelo a escala (2 esquinas)">▭ Ventana</button><button class="sp-btn" id="sp-setup" title="Tamaño y orientación del papel, nombre de la hoja">📄 Hoja…</button><button class="sp-btn" id="sp-pdf" title="Exportar esta hoja a PDF vectorial del tamaño exacto del papel (para imprimir a escala, al 100 %). Mayús + clic: PDF de imagen">🖨 PDF</button></span>`;
   }
   if(bar.innerHTML!==h)bar.innerHTML=h;
 }
@@ -12500,7 +12574,7 @@ function onTabsClick(ev){
   if(ev.target.closest('#sp-add')){openSheetModal('new');return}
   if(ev.target.closest('#sp-vp')){setTool('viewport');renderSpaceTabs();return}
   if(ev.target.closest('#sp-setup')){openSheetModal('edit');return}
-  if(ev.target.closest('#sp-pdf')){exportSheetPDF();return}
+  if(ev.target.closest('#sp-pdf')){exportSheetPDF(ev.shiftKey);return}
 }
 function onTabsDblClick(ev){
   const t=ev.target.closest('.sp-tab');if(!t||t.dataset.space==='model')return;
@@ -12518,6 +12592,7 @@ setTool=function(id){_setToolL(id);if(id==='viewport'&&app.tool&&app.tool.getPro
 const _renderPropsPanelL=renderPropsPanel;
 renderPropsPanel=function(){
   _renderPropsPanelL();
+  if(inLayout()){const _b=document.getElementById('space-tabs');if(_b&&!_b.querySelector('.sp-rename'))renderSpaceTabs()}   // rev23b: aviso de ventanas fuera del papel al día
   if(!inLayout()||app.d.selection.length!==1)return;
   const e=entById(app.d,app.d.selection[0]);if(!e||e.type!=='viewport')return;
   const p=document.getElementById('props-panel');
@@ -12568,24 +12643,326 @@ renderSpaceTabs();
 let _lwMul=1;
 const _getLineWeightPixelsL=getLineWeightPixels;
 getLineWeightPixels=function(lw){return _getLineWeightPixelsL(lw)*_lwMul};
+// ---------- PDF VECTORIAL de la hoja (rev23c) ----------
+// La hoja se dibuja con las mismas funciones de siempre, pero sobre un "lienzo grabador" (PdfRec) que en vez de
+// pintar píxeles escribe las instrucciones de dibujo del PDF: líneas, curvas, rellenos, recortes y textos.
+// Si algo no se puede traducir (un degradado, un modo de mezcla...), se registra el fallo y el botón PDF cae al PDF de
+// imagen de siempre, con un aviso. Nada de lo que ya funcionaba cambia.
+let _pdfFirstErr=null;
+function _pdfFail(m){const e=new Error(m);if(!_pdfFirstErr)_pdfFirstErr=e;throw e}
+const _PDF_FONTS=['Helvetica','Helvetica-Bold','Helvetica-Oblique','Helvetica-BoldOblique','Times-Roman','Times-Bold','Times-Italic','Times-BoldItalic','Courier','Courier-Bold','Courier-Oblique','Courier-BoldOblique'];
+const _PDF_NAT=['Arial','"Times New Roman"','"Courier New"'];
+let _pdfMc=null;
+function _pdfMctx(){if(!_pdfMc){const c=document.createElement('canvas');c.width=c.height=1;_pdfMc=c.getContext('2d')}return _pdfMc}
+function _pdfN(v){if(!isFinite(v))_pdfFail('número no válido en el dibujo');v=Math.round(v*100)/100;return v===0?'0':String(v)}
+function _pdfC(v){return (v/255).toFixed(3).replace(/\.?0+$/,'')||'0'}
+const _PDF_CP1252={'€':0x80,'‚':0x82,'ƒ':0x83,'„':0x84,'…':0x85,'†':0x86,'‡':0x87,'ˆ':0x88,'‰':0x89,'Š':0x8A,'‹':0x8B,'Œ':0x8C,'Ž':0x8E,'‘':0x91,'’':0x92,'“':0x93,'”':0x94,'•':0x95,'–':0x96,'—':0x97,'˜':0x98,'™':0x99,'š':0x9A,'›':0x9B,'œ':0x9C,'ž':0x9E,'Ÿ':0x9F,
+  '⌀':0xD8,'∅':0xD8,'−':0x2D,'≤':0x3C,'≥':0x3E,'′':0x27,'″':0x22,'→':0x3E,'←':0x3C,'∕':0x2F,'‐':0x2D,'‑':0x2D,' ':0x20,' ':0x20,' ':0x20};
+function _pdfStr(t){
+  let o='(';
+  for(const ch of String(t)){
+    let c=ch.codePointAt(0);
+    if(c>=32&&c<127){if(ch==='('||ch===')'||ch==='\\')o+='\\';o+=ch;continue}
+    if(c>=160&&c<=255){o+='\\'+c.toString(8).padStart(3,'0');continue}
+    const m=_PDF_CP1252[ch];
+    if(m!==undefined){if(m<127&&m>=32){const cc=String.fromCharCode(m);if(cc==='('||cc===')'||cc==='\\')o+='\\';o+=cc}else o+='\\'+m.toString(8).padStart(3,'0');continue}
+    const base=ch.normalize('NFD').replace(/[̀-ͯ]/g,'');
+    if(base&&base!==ch&&base.charCodeAt(0)>=32&&base.charCodeAt(0)<127){o+=base[0];continue}
+    o+=(c<32?' ':'?');
+  }
+  return o+')';
+}
+function _pdfHexStr(s){let h='FEFF';for(let i=0;i<s.length;i++)h+=s.charCodeAt(i).toString(16).padStart(4,'0');return '<'+h+'>'}
+class PdfRec{
+  constructor(Wf,Hf,dpi){
+    this.W=Wf;this.H=Hf;this.dpi=dpi;this.ps=72/dpi;this.canvas={width:Wf,height:Hf};
+    this.m=[1,0,0,1,0,0];this.stack=[];this.out=[];this.ops=0;this.nText=0;
+    this.s={fill:'#000000',stroke:'#000000',lw:1,cap:'butt',join:'miter',ml:10,dash:[],dashOff:0,font:'10px sans-serif',align:'left',base:'alphabetic',alpha:1,clip:[0,0,Wf,Hf]};
+    this.es={fc:'',sc:'',lw:'',cap:-1,join:-1,ml:'',dash:'[] 0',alpha:'1.000'};
+    this.p=[];this.pb=null;this.cur=null;this.sub=null;
+    this.colCache=new Map();this.fontCache=new Map();this.usedFonts=new Set();this.alphas=new Map();this.imgs=[];this.imgMap=new Map();
+  }
+  // ---- propiedades ----
+  get fillStyle(){return this.s.fill} set fillStyle(v){if(typeof v!=='string')_pdfFail('relleno con degradado o patrón');this.s.fill=v}
+  get strokeStyle(){return this.s.stroke} set strokeStyle(v){if(typeof v!=='string')_pdfFail('trazo con degradado o patrón');this.s.stroke=v}
+  get lineWidth(){return this.s.lw} set lineWidth(v){if(v>0&&isFinite(v))this.s.lw=v}
+  get lineCap(){return this.s.cap} set lineCap(v){this.s.cap=v}
+  get lineJoin(){return this.s.join} set lineJoin(v){this.s.join=v}
+  get miterLimit(){return this.s.ml} set miterLimit(v){if(v>0)this.s.ml=v}
+  get lineDashOffset(){return this.s.dashOff} set lineDashOffset(v){this.s.dashOff=+v||0}
+  get font(){return this.s.font} set font(v){this.s.font=String(v)}
+  get textAlign(){return this.s.align} set textAlign(v){this.s.align=v}
+  get textBaseline(){return this.s.base} set textBaseline(v){this.s.base=v}
+  get globalAlpha(){return this.s.alpha} set globalAlpha(v){if(v>=0&&v<=1)this.s.alpha=+v}
+  get globalCompositeOperation(){return 'source-over'} set globalCompositeOperation(v){if(v!=='source-over')_pdfFail('modo de mezcla '+v)}
+  get shadowBlur(){return 0} set shadowBlur(v){if(v)_pdfFail('sombra')}
+  get shadowOffsetX(){return 0} set shadowOffsetX(v){if(v)_pdfFail('sombra')}
+  get shadowOffsetY(){return 0} set shadowOffsetY(v){if(v)_pdfFail('sombra')}
+  get shadowColor(){return 'rgba(0, 0, 0, 0)'} set shadowColor(v){}
+  get filter(){return 'none'} set filter(v){if(v&&v!=='none')_pdfFail('filtro')}
+  get imageSmoothingEnabled(){return true} set imageSmoothingEnabled(v){}
+  get imageSmoothingQuality(){return 'low'} set imageSmoothingQuality(v){}
+  get fontKerning(){return 'auto'} set fontKerning(v){}
+  get textRendering(){return 'auto'} set textRendering(v){}
+  get direction(){return 'ltr'} set direction(v){}
+  get letterSpacing(){return '0px'} set letterSpacing(v){if(v&&parseFloat(v))_pdfFail('espaciado de letras')}
+  get wordSpacing(){return '0px'} set wordSpacing(v){if(v&&parseFloat(v))_pdfFail('espaciado de palabras')}
+  // ---- estado ----
+  save(){this.stack.push({s:{...this.s,dash:this.s.dash,clip:this.s.clip.slice()},m:this.m.slice(),es:{...this.es}});this.out.push('q')}
+  restore(){const t=this.stack.pop();if(!t)return;this.s=t.s;this.m=t.m;this.es=t.es;this.out.push('Q')}
+  translate(x,y){const m=this.m;m[4]+=m[0]*x+m[2]*y;m[5]+=m[1]*x+m[3]*y}
+  scale(x,y){const m=this.m;m[0]*=x;m[1]*=x;m[2]*=y;m[3]*=y}
+  rotate(a){const c=Math.cos(a),s=Math.sin(a),m=this.m;const a0=m[0],b0=m[1],c0=m[2],d0=m[3];m[0]=a0*c+c0*s;m[1]=b0*c+d0*s;m[2]=-a0*s+c0*c;m[3]=-b0*s+d0*c}
+  transform(a,b,c,d,e,f){const m=this.m;const a0=m[0],b0=m[1],c0=m[2],d0=m[3],e0=m[4],f0=m[5];m[0]=a0*a+c0*b;m[1]=b0*a+d0*b;m[2]=a0*c+c0*d;m[3]=b0*c+d0*d;m[4]=a0*e+c0*f+e0;m[5]=b0*e+d0*f+f0}
+  setTransform(a,b,c,d,e,f){if(a&&typeof a==='object'){const q=a;a=q.a;b=q.b;c=q.c;d=q.d;e=q.e;f=q.f}this.m=[a,b,c,d,e,f]}
+  resetTransform(){this.m=[1,0,0,1,0,0]}
+  getTransform(){const m=this.m;return new DOMMatrix([m[0],m[1],m[2],m[3],m[4],m[5]])}
+  setLineDash(a){this.s.dash=(a||[]).map(Number).filter(v=>isFinite(v)&&v>=0);if(this.s.dash.length%2)this.s.dash=this.s.dash.concat(this.s.dash)}
+  getLineDash(){return this.s.dash.slice()}
+  // ---- trazado ----
+  _pt(x,y){const m=this.m;return[m[0]*x+m[2]*y+m[4],m[1]*x+m[3]*y+m[5]]}
+  _bb(q){const b=this.pb;if(!b)this.pb=[q[0],q[1],q[0],q[1]];else{if(q[0]<b[0])b[0]=q[0];if(q[0]>b[2])b[2]=q[0];if(q[1]<b[1])b[1]=q[1];if(q[1]>b[3])b[3]=q[1]}}
+  beginPath(){this.p=[];this.pb=null;this.cur=null;this.sub=null}
+  moveTo(x,y){const q=this._pt(x,y);this._bb(q);this.p.push(_pdfN(q[0])+' '+_pdfN(q[1])+' m');this.cur=q;this.sub=q}
+  lineTo(x,y){if(!this.cur){this.moveTo(x,y);return}const q=this._pt(x,y);this._bb(q);this.p.push(_pdfN(q[0])+' '+_pdfN(q[1])+' l');this.cur=q}
+  closePath(){if(this.cur){this.p.push('h');this.cur=this.sub}}
+  rect(x,y,w,h){this.moveTo(x,y);this.lineTo(x+w,y);this.lineTo(x+w,y+h);this.lineTo(x,y+h);this.closePath()}
+  _cubic(q1,q2,q3){this._bb(q1);this._bb(q2);this._bb(q3);this.p.push(_pdfN(q1[0])+' '+_pdfN(q1[1])+' '+_pdfN(q2[0])+' '+_pdfN(q2[1])+' '+_pdfN(q3[0])+' '+_pdfN(q3[1])+' c');this.cur=q3}
+  bezierCurveTo(a,b,c,d,e,f){if(!this.cur)this.moveTo(a,b);this._cubic(this._pt(a,b),this._pt(c,d),this._pt(e,f))}
+  quadraticCurveTo(cx,cy,x,y){if(!this.cur)this.moveTo(cx,cy);const q0=this.cur,qc=this._pt(cx,cy),q=this._pt(x,y);this._cubic([q0[0]+2/3*(qc[0]-q0[0]),q0[1]+2/3*(qc[1]-q0[1])],[q[0]+2/3*(qc[0]-q[0]),q[1]+2/3*(qc[1]-q[1])],q)}
+  ellipse(cx,cy,rx,ry,rot,a0,a1,ccw){
+    const TWO=Math.PI*2;let d=a1-a0;
+    if(!ccw){if(d>=TWO)d=TWO;else{d%=TWO;if(d<0)d+=TWO}}else{if(d<=-TWO)d=-TWO;else{d%=TWO;if(d>0)d-=TWO}}
+    const cr=Math.cos(rot||0),sr=Math.sin(rot||0);
+    const P=t=>{const u=rx*Math.cos(t),v=ry*Math.sin(t);return this._pt(cx+u*cr-v*sr,cy+u*sr+v*cr)};
+    const D=t=>{const u=-rx*Math.sin(t),v=ry*Math.cos(t);const m=this.m;const lx=u*cr-v*sr,ly=u*sr+v*cr;return[m[0]*lx+m[2]*ly,m[1]*lx+m[3]*ly]};
+    const s0=P(a0);this._bb(s0);
+    if(!this.cur){this.p.push(_pdfN(s0[0])+' '+_pdfN(s0[1])+' m');this.cur=s0;this.sub=s0}else{this.p.push(_pdfN(s0[0])+' '+_pdfN(s0[1])+' l');this.cur=s0}
+    const n=Math.max(1,Math.ceil(Math.abs(d)/(Math.PI/2)-1e-9)),dl=d/n,kk=4/3*Math.tan(dl/4);
+    for(let i=0;i<n;i++){const t0=a0+dl*i,t1=t0+dl;const p0=P(t0),p3=P(t1),d0=D(t0),d1=D(t1);this._cubic([p0[0]+kk*d0[0],p0[1]+kk*d0[1]],[p3[0]-kk*d1[0],p3[1]-kk*d1[1]],p3)}
+  }
+  arc(x,y,r,a0,a1,ccw){this.ellipse(x,y,r,r,0,a0,a1,ccw)}
+  arcTo(){_pdfFail('arcTo')}
+  roundRect(){_pdfFail('roundRect')}
+  // ---- color y estado de dibujo ----
+  _rgba(str){
+    let c=this.colCache.get(str);if(c)return c;
+    let m=/^#([0-9a-f]{6})$/i.exec(str);
+    if(m){const v=parseInt(m[1],16);c=[(v>>16)&255,(v>>8)&255,v&255,1]}
+    else{
+      const mc=_pdfMctx();mc.fillStyle='#000000';mc.fillStyle=str;const r=mc.fillStyle;
+      m=/^#([0-9a-f]{6})$/i.exec(r);
+      if(m){const v=parseInt(m[1],16);c=[(v>>16)&255,(v>>8)&255,v&255,1]}
+      else{const q=/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)$/.exec(r);if(!q)_pdfFail('color '+str);c=[+q[1],+q[2],+q[3],q[4]===undefined?1:+q[4]]}
+    }
+    this.colCache.set(str,c);return c;
+  }
+  _sc(){const m=this.m;const d=Math.abs(m[0]*m[3]-m[1]*m[2]);return Math.sqrt(d)||1}
+  _alphaName(a){const k=a.toFixed(3);let n=this.alphas.get(k);if(!n){n='G'+(this.alphas.size+1);this.alphas.set(k,n)}return n}
+  _paint(kind){
+    const s=this.s,es=this.es,o=this.out;
+    let alpha=s.alpha;
+    if(kind==='f'||kind==='t'){
+      const c=this._rgba(s.fill);alpha*=c[3];
+      const k=_pdfC(c[0])+' '+_pdfC(c[1])+' '+_pdfC(c[2])+' rg';
+      if(k!==es.fc){o.push(k);es.fc=k}
+    }
+    if(kind==='s'){
+      const c=this._rgba(s.stroke);alpha*=c[3];
+      const k=_pdfC(c[0])+' '+_pdfC(c[1])+' '+_pdfC(c[2])+' RG';
+      if(k!==es.sc){o.push(k);es.sc=k}
+      const sc=this._sc();
+      const lw=_pdfN(Math.max(s.lw*sc,0.01));if(lw!==es.lw){o.push(lw+' w');es.lw=lw}
+      const cap=s.cap==='round'?1:s.cap==='square'?2:0;if(cap!==es.cap){o.push(cap+' J');es.cap=cap}
+      const jn=s.join==='round'?1:s.join==='bevel'?2:0;if(jn!==es.join){o.push(jn+' j');es.join=jn}
+      const ml=_pdfN(s.ml);if(ml!==es.ml){o.push(ml+' M');es.ml=ml}
+      const ds=s.dash.length?'['+s.dash.map(v=>_pdfN(Math.max(v*sc,0.01))).join(' ')+'] '+_pdfN(s.dashOff*sc):'[] 0';
+      if(ds!==es.dash){o.push(ds+' d');es.dash=ds}
+    }
+    const al=alpha.toFixed(3);
+    if(al!==es.alpha){o.push('/'+this._alphaName(alpha)+' gs');es.alpha=al}
+  }
+  _visible(margin){const b=this.pb,c=this.s.clip;if(!b)return false;return !(b[2]+margin<c[0]||b[0]-margin>c[2]||b[3]+margin<c[1]||b[1]-margin>c[3])}
+  fill(rule){
+    if(rule&&typeof rule==='object')_pdfFail('Path2D');
+    if(!this.p.length||!this._visible(0))return;
+    this._paint('f');this.out.push(this.p.join(' ')+(rule==='evenodd'?' f*':' f'));this.ops++;
+  }
+  stroke(path){
+    if(path&&typeof path==='object')_pdfFail('Path2D');
+    if(!this.p.length)return;
+    if(!this._visible(this.s.lw*this._sc()*Math.max(1,this.s.ml)))return;
+    this._paint('s');this.out.push(this.p.join(' ')+' S');this.ops++;
+  }
+  clip(rule){
+    if(rule&&typeof rule==='object')_pdfFail('Path2D');
+    const c=this.s.clip;
+    if(!this.p.length||!this.pb){this.out.push('0 0 0 0 re W n');this.s.clip=[0,0,-1,-1];return}
+    const b=this.pb;
+    this.s.clip=[Math.max(c[0],b[0]),Math.max(c[1],b[1]),Math.min(c[2],b[2]),Math.min(c[3],b[3])];
+    this.out.push(this.p.join(' ')+(rule==='evenodd'?' W* n':' W n'));this.ops++;
+  }
+  _withTmpPath(fn){const sp=this.p,sb=this.pb,sc=this.cur,ss=this.sub;this.beginPath();try{fn()}finally{this.p=sp;this.pb=sb;this.cur=sc;this.sub=ss}}
+  fillRect(x,y,w,h){this._withTmpPath(()=>{this.rect(x,y,w,h);this.fill()})}
+  strokeRect(x,y,w,h){this._withTmpPath(()=>{this.rect(x,y,w,h);this.stroke()})}
+  clearRect(){_pdfFail('clearRect')}
+  strokeText(){_pdfFail('strokeText')}
+  createLinearGradient(){_pdfFail('degradado')}
+  createRadialGradient(){_pdfFail('degradado')}
+  createConicGradient(){_pdfFail('degradado')}
+  createPattern(){_pdfFail('patrón')}
+  getImageData(){_pdfFail('getImageData')}
+  putImageData(){_pdfFail('putImageData')}
+  isPointInPath(){_pdfFail('isPointInPath')}
+  isPointInStroke(){_pdfFail('isPointInStroke')}
+  // ---- texto ----
+  _fontInfo(f){
+    let r=this.fontCache.get(f);if(r)return r;
+    const sz=/([\d.]+)px/.exec(f);if(!sz)_pdfFail('tamaño de letra '+f);
+    const size=parseFloat(sz[1]);
+    const bold=/\bbold\b|\b[6-9]00\b/i.test(f.slice(0,sz.index)),ital=/\b(italic|oblique)\b/i.test(f.slice(0,sz.index));
+    const fam=(f.slice(sz.index+sz[0].length).split(',')[0]||'').replace(/["']/g,'').trim().toLowerCase();
+    let fi=0;
+    if(/courier|consolas|monaco|menlo|lucida console|\bmono\b|monospace/.test(fam))fi=2;
+    else if(/times|georgia|cambria|garamond|palatino|bookman|minion|^serif$/.test(fam))fi=1;
+    const idx=fi*4+(bold?1:0)+(ital?2:0);
+    r={size,idx,nat:(ital?'italic ':'')+(bold?'bold ':'')+size+'px '+_PDF_NAT[fi]};
+    this.fontCache.set(f,r);return r;
+  }
+  measureText(t){const mc=_pdfMctx();mc.font=this.s.font;return mc.measureText(t)}
+  fillText(text,x,y){
+    text=String(text);if(text==='')return;
+    const s=this.s,fi=this._fontInfo(s.font);
+    const mc=_pdfMctx();mc.font=s.font;const tm=mc.measureText(text);const wReal=tm.width;
+    let tz=100;
+    mc.font=fi.nat;const wN=mc.measureText(text).width;
+    if(wN>0&&wReal>0){tz=100*wReal/wN;if(tz<40)tz=40;if(tz>250)tz=250;if(Math.abs(tz-100)<1.5)tz=100}
+    let dx=0;if(s.align==='center')dx=-wReal/2;else if(s.align==='right'||s.align==='end')dx=-wReal;
+    let dy=0;
+    if(s.base!=='alphabetic'){
+      const asc=tm.emHeightAscent!==undefined?tm.emHeightAscent:fi.size*0.8,dsc=tm.emHeightDescent!==undefined?tm.emHeightDescent:fi.size*0.2;
+      if(s.base==='top'||s.base==='hanging')dy=asc;else if(s.base==='middle')dy=(asc-dsc)/2;else if(s.base==='bottom')dy=-dsc;
+    }
+    const m=this.m,lx=x+dx,ly=y+dy;
+    const e=m[0]*lx+m[2]*ly+m[4],f=m[1]*lx+m[3]*ly+m[5];
+    // fuera del recorte: no se escribe
+    const c=s.clip,rad=(wReal+fi.size*2)*this._sc();
+    if(e+rad<c[0]||e-rad>c[2]||f+rad<c[1]||f-rad>c[3])return;
+    this._paint('t');
+    this.usedFonts.add(fi.idx);
+    this.out.push('BT /F'+(fi.idx+1)+' '+_pdfN(fi.size)+' Tf '+(tz===100?'':_pdfN(tz)+' Tz ')+[m[0],m[1],-m[2],-m[3]].map(v=>(Math.round(v*10000)/10000)).join(' ')+' '+_pdfN(e)+' '+_pdfN(f)+' Tm '+_pdfStr(text)+' Tj ET');
+    this.ops++;this.nText++;
+  }
+  // ---- imágenes ----
+  drawImage(img){
+    const a=arguments;let sx=0,sy=0,sw,sh,dx,dy,dw,dh;
+    const iw=img.naturalWidth||img.videoWidth||img.width,ih=img.naturalHeight||img.videoHeight||img.height;
+    if(!(iw>0&&ih>0))return;
+    if(a.length===3){dx=a[1];dy=a[2];dw=iw;dh=ih;sw=iw;sh=ih}
+    else if(a.length===5){dx=a[1];dy=a[2];dw=a[3];dh=a[4];sw=iw;sh=ih}
+    else if(a.length===9){sx=a[1];sy=a[2];sw=a[3];sh=a[4];dx=a[5];dy=a[6];dw=a[7];dh=a[8]}
+    else _pdfFail('drawImage');
+    const key=sx+','+sy+','+sw+','+sh;let mm=this.imgMap.get(img);if(!mm){mm=new Map();this.imgMap.set(img,mm)}
+    let rec=mm.get(key);
+    if(!rec){
+      const lim=3000,sc=Math.min(1,lim/Math.max(sw,sh));
+      const tw=Math.max(1,Math.round(sw*sc)),th=Math.max(1,Math.round(sh*sc));
+      const cv=document.createElement('canvas');cv.width=tw;cv.height=th;const g=cv.getContext('2d');
+      g.fillStyle='#fff';g.fillRect(0,0,tw,th);g.drawImage(img,sx,sy,sw,sh,0,0,tw,th);
+      const b64=cv.toDataURL('image/jpeg',0.92).split(',')[1];const bin=atob(b64);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
+      rec={n:this.imgs.length+1,w:tw,h:th,bytes:u};this.imgs.push(rec);mm.set(key,rec);
+    }
+    this._paint('i');
+    const m=this.m;
+    this.out.push('q '+[m[0],m[1],m[2],m[3]].map(v=>Math.round(v*10000)/10000).join(' ')+' '+_pdfN(m[4])+' '+_pdfN(m[5])+' cm '+_pdfN(dw)+' 0 0 '+_pdfN(-dh)+' '+_pdfN(dx)+' '+_pdfN(dy+dh)+' cm /Im'+rec.n+' Do Q');
+    this.ops++;
+  }
+  // ---- cierre: arma el archivo PDF ----
+  async finish(wMm,hMm,title){
+    while(this.stack.length)this.restore();
+    const enc=new TextEncoder();
+    const wPt=wMm/25.4*72,hPt=hMm/25.4*72,ps=this.ps;
+    const head=ps.toFixed(6)+' 0 0 '+(-ps).toFixed(6)+' 0 '+hPt.toFixed(3)+' cm\n';
+    // contenido (comprimido si el navegador sabe)
+    const parts=[enc.encode(head)];
+    for(let i=0;i<this.out.length;i+=20000)parts.push(enc.encode(this.out.slice(i,i+20000).join('\n')+'\n'));
+    let content=null,flate=false;
+    if(typeof CompressionStream!=='undefined'){
+      try{
+        const cs=new CompressionStream('deflate');const rd=new Response(cs.readable).arrayBuffer();const wr=cs.writable.getWriter();
+        for(const p of parts)await wr.write(p);
+        await wr.close();content=new Uint8Array(await rd);flate=true;
+      }catch(err){content=null;flate=false}
+    }
+    if(!content){let n=0;for(const p of parts)n+=p.length;content=new Uint8Array(n);let o=0;for(const p of parts){content.set(p,o);o+=p.length}}
+    // objetos
+    const chunks=[];let pos=0;const offs=[];
+    const add=x=>{const u=typeof x==='string'?enc.encode(x):x;chunks.push(u);pos+=u.length};
+    const obj=(n,body)=>{offs[n]=pos;add(n+' 0 obj\n'+body+'\nendobj\n')};
+    const fonts=[...this.usedFonts].sort((a,b)=>a-b);
+    const fontObj={};fonts.forEach((fi,i)=>{fontObj[fi]=6+i});
+    const imgBase=6+fonts.length;
+    let res='<< /Font << '+fonts.map(fi=>'/F'+(fi+1)+' '+fontObj[fi]+' 0 R').join(' ')+' >>';
+    if(this.alphas.size)res+=' /ExtGState << '+[...this.alphas].map(([k,n])=>'/'+n+' << /Type /ExtGState /ca '+k+' /CA '+k+' >>').join(' ')+' >>';
+    if(this.imgs.length)res+=' /XObject << '+this.imgs.map(r=>'/Im'+r.n+' '+(imgBase+r.n-1)+' 0 R').join(' ')+' >>';
+    res+=' >>';
+    add('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+    obj(1,'<< /Type /Catalog /Pages 2 0 R >>');
+    obj(2,'<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+    obj(3,'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+wPt.toFixed(3)+' '+hPt.toFixed(3)+'] /Resources '+res+' /Contents 4 0 R >>');
+    offs[4]=pos;add('4 0 obj\n<< /Length '+content.length+(flate?' /Filter /FlateDecode':'')+' >>\nstream\n');add(content);add('\nendstream\nendobj\n');
+    const now=new Date(),pad=v=>String(v).padStart(2,'0');
+    const dt='D:'+now.getFullYear()+pad(now.getMonth()+1)+pad(now.getDate())+pad(now.getHours())+pad(now.getMinutes())+pad(now.getSeconds());
+    obj(5,'<< /Title '+_pdfHexStr(title||'FácilTrazo')+' /Producer '+_pdfHexStr('FácilTrazo')+' /CreationDate ('+dt+') >>');
+    fonts.forEach(fi=>obj(fontObj[fi],'<< /Type /Font /Subtype /Type1 /BaseFont /'+_PDF_FONTS[fi]+' /Encoding /WinAnsiEncoding >>'));
+    for(const r of this.imgs){const n=imgBase+r.n-1;offs[n]=pos;add(n+' 0 obj\n<< /Type /XObject /Subtype /Image /Width '+r.w+' /Height '+r.h+' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+r.bytes.length+' >>\nstream\n');add(r.bytes);add('\nendstream\nendobj\n')}
+    const total=imgBase+this.imgs.length;
+    const xref=pos;let x='xref\n0 '+total+'\n0000000000 65535 f \n';
+    for(let n=1;n<total;n++)x+=String(offs[n]).padStart(10,'0')+' 00000 n \n';
+    add(x+'trailer\n<< /Size '+total+' /Root 1 0 R /Info 5 0 R >>\nstartxref\n'+xref+'\n%%EOF\n');
+    return new Blob(chunks,{type:'application/pdf'});
+  }
+}
+// Si el dibujo pide algo que este lienzo no conoce (método o propiedad), se registra el fallo en vez de perderlo en silencio.
+Object.setPrototypeOf(PdfRec.prototype,new Proxy(Object.prototype,{get(t,k,r){const v=Reflect.get(t,k,r);if(v!==undefined||typeof k==='symbol')return v;_pdfFail('el dibujo usa «'+String(k)+'», que el PDF vectorial no traduce')}}));
+// Pone la vista como la usa la impresión (1 px = 1/k mm), ejecuta fn y deja todo como estaba.
+function _withSheetView(L,k,fn){
+  const S=L.sheet;
+  const sv={s:view.scale,x:view.offsetX,y:view.offsetY,t:textScaleOverride,f:forceWhiteToBlackOverride,m:lineWeightMinPxOverride,sel:app.d.selection};
+  try{
+    view.scale=k;view.offsetX=-S.x*k;view.offsetY=(S.y+S.h)*k;
+    textScaleOverride=k;forceWhiteToBlackOverride=true;lineWeightMinPxOverride=null;_lwMul=k/3.78;app.d.selection=[];
+    fn();
+  }finally{
+    view.scale=sv.s;view.offsetX=sv.x;view.offsetY=sv.y;textScaleOverride=sv.t;forceWhiteToBlackOverride=sv.f;lineWeightMinPxOverride=sv.m;_lwMul=1;app.d.selection=sv.sel;
+  }
+}
+function _paintSheet(o){
+  const ents=getEntitiesWithLayer().filter(e=>e._layer&&e._layer.visible);
+  for(const e of ents)if(e.type==='viewport')drawEntity(o,e,false);
+  for(const e of ents)if(e.type!=='viewport'&&e.type!=='dimension')drawEntity(o,e,false);
+  for(const e of ents)if(e.type==='dimension')drawEntity(o,e,false);
+}
 function renderSheetCanvas(L,dpi){
   const S=L.sheet;const k=dpi/25.4;
   const W=Math.round(S.w*k),H=Math.round(S.h*k);
   const off=document.createElement('canvas');off.width=W;off.height=H;
   const o=off.getContext('2d');o.fillStyle='#ffffff';o.fillRect(0,0,W,H);
-  const sv={s:view.scale,x:view.offsetX,y:view.offsetY,t:textScaleOverride,f:forceWhiteToBlackOverride,m:lineWeightMinPxOverride,sel:app.d.selection};
-  try{
-    view.scale=k;view.offsetX=-S.x*k;view.offsetY=(S.y+S.h)*k;
-    textScaleOverride=k;forceWhiteToBlackOverride=true;lineWeightMinPxOverride=null;_lwMul=k/3.78;app.d.selection=[];
-    const ents=getEntitiesWithLayer().filter(e=>e._layer&&e._layer.visible);
-    for(const e of ents)if(e.type==='viewport')drawEntity(o,e,false);
-    for(const e of ents)if(e.type!=='viewport'&&e.type!=='dimension')drawEntity(o,e,false);
-    for(const e of ents)if(e.type==='dimension')drawEntity(o,e,false);
-  }finally{
-    view.scale=sv.s;view.offsetX=sv.x;view.offsetY=sv.y;textScaleOverride=sv.t;forceWhiteToBlackOverride=sv.f;lineWeightMinPxOverride=sv.m;_lwMul=1;app.d.selection=sv.sel;
-  }
+  _withSheetView(L,k,()=>_paintSheet(o));
   return off;
 }
+// PDF vectorial de una hoja: devuelve {blob,ops,textos,imagenes,ms}. Lanza un error si algo no se puede traducir.
+async function buildVectorSheetPdf(L,dpi){
+  const t0=performance.now();const S=L.sheet;dpi=dpi||254;const k=dpi/25.4;
+  _pdfFirstErr=null;
+  const rec=new PdfRec(S.w*k,S.h*k,dpi);
+  _withSheetView(L,k,()=>_paintSheet(rec));
+  if(_pdfFirstErr)throw _pdfFirstErr;
+  if(rec.ops>60e6)_pdfFail('la hoja es demasiado grande para un PDF vectorial');
+  const blob=await rec.finish(S.w,S.h,L.name);
+  return{blob,ops:rec.ops,textos:rec.nText,imagenes:rec.imgs.length,ms:Math.round(performance.now()-t0)};
+}
+
 function jpegPdfBlob(jpegBytes,imgW,imgH,pageWmm,pageHmm){
   const enc=new TextEncoder();
   const ptW=(pageWmm/25.4*72).toFixed(3),ptH=(pageHmm/25.4*72).toFixed(3);
@@ -12604,12 +12981,12 @@ function jpegPdfBlob(jpegBytes,imgW,imgH,pageWmm,pageHmm){
   add(x+`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
   return new Blob(parts,{type:'application/pdf'});
 }
-function exportSheetPDF(){
-  const L=curLayout();if(!L){setMsg('Para exportar a PDF, abra una hoja (pestaña de abajo)');return}
-  syncLayoutRecord();
+function _pdfFileName(L){const base=(app.currentFileName||'faciltrazo').replace(/\.(json|dft|ftz|dwg|dxf)$/i,'');return sanitizeFileName(base+' - '+L.name)+'.pdf'}
+// PDF de imagen (el de antes): se usa si el PDF vectorial no se puede hacer, o con Mayús + clic.
+function exportSheetPDFImagen(L,aviso){
   const S=L.sheet;const maxIn=Math.max(S.w,S.h)/25.4;
   const dpi=Math.max(100,Math.min(300,Math.floor(12000/maxIn)));
-  setMsg('Generando PDF de "'+L.name+'" a '+dpi+' ppp…');
+  setMsg((aviso||'')+'Generando PDF de imagen de "'+L.name+'" a '+dpi+' ppp…');
   setTimeout(()=>{
     try{
       const c=renderSheetCanvas(L,dpi);
@@ -12617,12 +12994,27 @@ function exportSheetPDF(){
         if(!b){setMsg('No se pudo generar el PDF');return}
         b.arrayBuffer().then(buf=>{
           const pdf=jpegPdfBlob(new Uint8Array(buf),c.width,c.height,S.w,S.h);
-          const base=(app.currentFileName||'faciltrazo').replace(/\.json$/i,'');
-          triggerDownload(pdf,sanitizeFileName(base+' - '+L.name)+'.pdf');
-          setMsg('PDF de "'+L.name+'" exportado: '+sheetLabel(S)+', imprimir a tamaño real (100 %)');
+          triggerDownload(pdf,_pdfFileName(L));
+          setMsg((aviso||'')+'PDF de imagen de "'+L.name+'" exportado: '+sheetLabel(S)+', imprimir a tamaño real (100 %)');
         });
       },'image/jpeg',0.92);
     }catch(err){setMsg('No se pudo generar el PDF: '+err.message)}
+  },30);
+}
+function exportSheetPDF(soloImagen){
+  const L=curLayout();if(!L){setMsg('Para exportar a PDF, abra una hoja (pestaña de abajo)');return}
+  syncLayoutRecord();
+  if(soloImagen===true){exportSheetPDFImagen(L,'');return}
+  setMsg('Generando PDF vectorial de "'+L.name+'"…');
+  setTimeout(async()=>{
+    try{
+      const r=await buildVectorSheetPdf(L);
+      triggerDownload(r.blob,_pdfFileName(L));
+      setMsg('PDF vectorial de "'+L.name+'" exportado: '+sheetLabel(L.sheet)+' · '+(r.blob.size<1048576?Math.max(1,Math.round(r.blob.size/1024))+' KB':(r.blob.size/1048576).toFixed(1)+' MB')+' · imprimir a tamaño real (100 %)');
+    }catch(err){
+      console.warn('PDF vectorial no disponible:',err);
+      exportSheetPDFImagen(L,'No se pudo hacer vectorial ('+((err&&err.message)||err)+'); se exporta como imagen. ');
+    }
   },30);
 }
 
@@ -12818,15 +13210,16 @@ acceptViewportModal=function(){
       let s=parseFloat(sel.value);
       if(sel.value==='custom'){const n=parseFloat(String(document.getElementById('vp-custom').value).replace(',','.'));if(!(n>0)){setMsg('Escriba la escala personalizada, por ejemplo 30 para 1:30');return}s=1/n}
       document.getElementById('vp-modal').classList.remove('visible');_vpPending=null;
-      createViewportEntity(r,{x:(a.minX+a.maxX)/2,y:(a.minY+a.maxY)/2},s);
+      createViewportEntity(r,{x:(a.minX+a.maxX)/2,y:(a.minY+a.maxY)/2},s,a);
       return;
     }
   }
   return _acceptViewportModalZ();
 };
-function createViewportEntity(r,center,s){
+function createViewportEntity(r,center,s,zone){
   const LV=ensureLayer('VENTANAS',{color:'#8a949b',lineWeight:'0.18'});
   const e={...baseProps(app.d),layerId:LV.id,color:'bylayer',lineWeight:'bylayer',lineType:'bylayer',type:'viewport',x:r.x,y:r.y,w:r.w,h:r.h,center,scale:s,twist:0,frozenLayers:[]};
+  if(zone)e.zone={minX:zone.minX,minY:zone.minY,maxX:zone.maxX,maxY:zone.maxY};
   e.id=newId();
   executeCommand(app.d,new AddEntityCommand(app.d,e));
   setTool('select');app.d.selection=[e.id];onChange();
@@ -12875,15 +13268,15 @@ function finishZonePick(ext){
   setSpace(z.layout);
   if(z.rect){
     const s=bestScaleFor(ext,z.rect.w,z.rect.h);
-    createViewportEntity(z.rect,{x:(ext.minX+ext.maxX)/2,y:(ext.minY+ext.maxY)/2},s);
+    createViewportEntity(z.rect,{x:(ext.minX+ext.maxX)/2,y:(ext.minY+ext.maxY)/2},s,ext);
     return;
   }
   const vp=entById(app.d,z.vpId);if(!vp)return;
   const s=bestScaleFor(ext,vp.w,vp.h);
-  const before=[cloneEnt(vp)],a=cloneEnt(vp);a.scale=s;a.center={x:(ext.minX+ext.maxX)/2,y:(ext.minY+ext.maxY)/2};
+  const before=[cloneEnt(vp)],a=cloneEnt(vp);a.scale=s;a.center={x:(ext.minX+ext.maxX)/2,y:(ext.minY+ext.maxY)/2};a.zone={minX:ext.minX,minY:ext.minY,maxX:ext.maxX,maxY:ext.maxY};delete a.zoneClip;
   executeCommand(app.d,new GenericEditCommand(app.d,before,[a]));
   app.d.selection=[vp.id];onChange();
-  setMsg('Ventana encuadrada en la zona marcada, escala '+scaleLabel(s)+' (se puede cambiar en Propiedades)');
+  setMsg('Ventana encuadrada en la zona marcada, escala '+scaleLabel(s)+' · solo se ve esa zona (se puede cambiar en Propiedades)');
 }
 // Botón en el panel de propiedades de la ventana
 const _renderPropsPanelZ=renderPropsPanel;
@@ -12899,6 +13292,18 @@ renderPropsPanel=function(){
   b2.textContent='✋ Mover vista adentro';
   b2.onclick=()=>enterVpMode(e.id);
   fit.parentNode.appendChild(b2);
+  // rev23: mostrar solo la zona marcada (recorta las piezas vecinas del Modelo)
+  if(e.zone&&!document.getElementById('vp-p-zclip')){
+    const row=document.createElement('label');row.className='vp-row';row.style.cssText='display:flex;gap:6px;align-items:center;font-size:12px;margin:4px 0;cursor:pointer';
+    row.title='Activada: la ventana muestra solo la zona del Modelo que se marcó, aunque a esa escala quepan piezas vecinas. Desactivada: muestra todo lo que cabe en la ventana.';
+    row.innerHTML='<input type="checkbox" id="vp-p-zclip"'+(e.zoneClip!==false?' checked':'')+'> Mostrar solo la zona marcada';
+    fit.parentNode.parentNode.insertBefore(row,fit.parentNode);
+    row.querySelector('input').onchange=ev=>{
+      const before=[cloneEnt(e)],a=cloneEnt(e);a.zoneClip=ev.target.checked;
+      executeCommand(app.d,new GenericEditCommand(app.d,before,[a]));onChange();
+      setMsg(ev.target.checked?'La ventana muestra solo la zona marcada':'La ventana muestra todo lo que cabe, también las piezas vecinas');
+    };
+  }
 };
 
 // ---------- Mover la vista DENTRO de una ventana (doble clic adentro; Esc o doble clic afuera para salir) ----------
@@ -13616,8 +14021,10 @@ const _applyCadImportCap=applyCadImport;
 applyCadImport=function(res,c,unit,mode){const n=_applyCadImportCap(res,c,unit,mode);if(mode==='open'&&app.d)app.d.textCap=true;return n};
 
 // ===== Cubicación y revisión: buscador, mediciones tipo cota, marcas de revisión y Excel =====
-// Las marcas viven aparte del dibujo (app.d.mk): no son entidades, no se imprimen, no salen en
-// las hojas (layouts) ni en DWG/DXF/PDF. Se guardan dentro del archivo de FácilTrazo.
+// Las marcas viven aparte del dibujo (app.d.mk): no son entidades, no se imprimen, no salen en el
+// PDF de la hoja ni como dibujo en DWG/DXF. Se guardan dentro del archivo de FácilTrazo.
+// rev23d: también funcionan dentro de una hoja (layout): se mide el MODELO a través de la ventana
+// (valores reales, con la escala de la ventana) y las marcas se ven dentro de las ventanas.
 (function(){
 const MK_UNITS={mm:{f:1,dec:0,lbl:'mm'},cm:{f:10,dec:1,lbl:'cm'},m:{f:1000,dec:2,lbl:'m'}};
 const MK_COLORS=['#ff3fd2','#ffd400','#00e5ff','#ff4d4d','#3ddc84'];
@@ -13644,7 +14051,46 @@ function mkLabel(it){
   const t=(it.kind==='area'?'A = ':'L = ')+mkFmt(v,U.dec)+' '+mkUnitLbl(it);
   return it.name?it.name+' · '+t:t;
 }
-function mkVisible(){return mk().show&&!(typeof inLayout==='function'&&inLayout())&&!forceWhiteToBlackOverride}
+function mkVisible(){return mk().show&&!forceWhiteToBlackOverride}
+// ---------- rev23d: Cubicación y revisión dentro de una hoja (layout) ----------
+// En una hoja el mouse trabaja en milímetros de PAPEL; las marcas se guardan siempre en coordenadas del MODELO.
+// Un clic dentro de una ventana se convierte con la escala de esa ventana (paperToModel); las marcas se dibujan
+// dentro de cada ventana con el mismo contexto que usa la ventana para mostrar el modelo (withModelCtx).
+const MK_VP_MSG='En una hoja se mide el modelo a través de una ventana: haga clic dentro de una ventana (no sobre el papel)';
+let mkLastVp=null;
+function mkViewports(){
+  if(!inLayout()||_inVP)return[];
+  return getEntitiesWithLayer().filter(e=>e.type==='viewport'&&e._layer&&e._layer.visible&&!e.twist&&e.scale>0);
+}
+function mkEachViewport(x,fn){
+  for(const vp of mkViewports()){
+    const r=vpScreenRect(vp);
+    if(!(r[2]>2&&r[3]>2))continue;
+    withModelCtx(vp,()=>{
+      x.save();
+      try{
+        x.beginPath();x.rect(r[0],r[1],r[2],r[3]);x.clip();
+        if(vp.zone&&vp.zoneClip!==false){const za=worldToScreen(vp.zone.minX,vp.zone.maxY),zb=worldToScreen(vp.zone.maxX,vp.zone.minY);x.beginPath();x.rect(Math.min(za.x,zb.x),Math.min(za.y,zb.y),Math.abs(zb.x-za.x),Math.abs(zb.y-za.y));x.clip()}
+        fn(vp);
+      }finally{x.restore()}
+    });
+  }
+}
+// Punto del MODELO bajo el mouse (null si, en una hoja, el clic no cae dentro de una ventana)
+function mkPt(w,c){
+  if(!inLayout())return pickPt(w,c);
+  const p=(c&&c.snap&&c.snap.viaViewport)?{x:c.snap.world.x,y:c.snap.world.y}:{x:w.x,y:w.y};
+  const vp=viewportAt(p);
+  if(!vp||vp.twist||!(vp.scale>0))return null;
+  mkLastVp=vp.id;
+  return paperToModel(vp,p);
+}
+// Punto de referencia (rastreo polar / ortogonal) en las coordenadas que usa el mouse
+function mkRef(pt){
+  if(!pt||!inLayout())return pt||null;
+  const vp=mkLastVp!=null?app.d.entities.find(e=>e.type==='viewport'&&e.id===mkLastVp):null;
+  return vp?modelToPaper(vp,pt):null;
+}
 
 // ---------- Dibujo de las marcas (en pixeles de pantalla: se leen igual a cualquier zoom) ----------
 function S(p){return worldToScreen(p.x,p.y)}
@@ -13764,7 +14210,10 @@ render=function(){
   if(app.d!==mkUI.doc){mkUI.doc=app.d;refreshPanel()}
   if(mkVisible()){
     const items=mk().items;const hot=mkUI.hover;
-    for(const it of items)drawItem(ctx,it,it===hot);
+    if(items.length){
+      if(inLayout())mkEachViewport(ctx,()=>{for(const it of items)drawItem(ctx,it,it===hot)});
+      else for(const it of items)drawItem(ctx,it,it===hot);
+    }
   }
   if(!forceWhiteToBlackOverride)drawFlash(ctx);
 };
@@ -13786,10 +14235,10 @@ class MkPointsTool{
     if(this.kind==='path')return n?`📐 Recorrido: siga marcando puntos · Enter termina (${n} punto(s))`:'📐 Medición de recorrido: clic en el primer punto (suma todos los tramos)';
     return n?`📐 Área: siga marcando el contorno · Enter cierra (${n} punto(s))`:'📐 Medición de área: clic en el primer punto del contorno';
   }
-  refPoint(){return this.stage?null:(this.pts.length?this.pts[this.pts.length-1]:null)}
+  refPoint(){return this.stage?null:(this.pts.length?mkRef(this.pts[this.pts.length-1]):null)}
   done(c,extra){addItem({kind:this.kind,pts:this.pts,...(extra||{})});this.pts=[];this.cur=null;this.stage=null;c.setMsg('Medición agregada · '+this.getPrompt())}
   onMouseDown(w,s,c){
-    const p=pickPt(w,c);
+    const p=mkPt(w,c);if(!p){c.setMsg(MK_VP_MSG);return}
     if(this.stage==='off'){const o=offFrom(this.pts[0],this.pts[1],p);this.done(c,Math.abs(o)>1e-9?{off:o}:null);return}
     if(this.stage==='lab'){this.done(c,{lab:p});return}
     const last=this.pts[this.pts.length-1];
@@ -13804,7 +14253,7 @@ class MkPointsTool{
     if(this.pts.length>=this.need()){this.done(c);return true}
     return false;
   }
-  onMouseMove(w,s,c){this.cur=pickPt(w,c)}
+  onMouseMove(w,s,c){this.cur=mkPt(w,c)}
   drawPreview(x){
     if(!this.pts.length)return;
     const base={kind:this.kind,pts:this.pts.slice(),color:mk().color,name:mk().name};
@@ -13828,10 +14277,11 @@ class MkMoveTool{
       const it=itemAt(s);if(!it||!['dist','path','area'].includes(it.kind)){c.setMsg('Haga clic sobre una medición de distancia, recorrido o área');return}
       this.it=it;this.orig={off:it.off,lab:it.lab};mkUI.hover=it;c.setMsg(this.getPrompt());return;
     }
-    this.apply(pickPt(w,c));this.it=null;this.orig=null;mkUI.hover=null;scheduleAutosave();render();c.setMsg('Cota de revisión movida · '+this.getPrompt());
+    const q=mkPt(w,c);if(!q){c.setMsg(MK_VP_MSG);return}
+    this.apply(q);this.it=null;this.orig=null;mkUI.hover=null;scheduleAutosave();render();c.setMsg('Cota de revisión movida · '+this.getPrompt());
   }
   onEnter(c){if(!this.it)return false;delete this.it.off;delete this.it.lab;this.it=null;this.orig=null;mkUI.hover=null;scheduleAutosave();render();c.setMsg('Cota devuelta sobre la línea · '+this.getPrompt());return true}
-  onMouseMove(w,s,c){if(this.it){this.apply(pickPt(w,c));return}const h=mkVisible()?itemAt(s):null;mkUI.hover=h&&['dist','path','area'].includes(h.kind)?h:null}
+  onMouseMove(w,s,c){if(this.it){const q=mkPt(w,c);if(q)this.apply(q);return}const h=mkVisible()?itemAt(s):null;mkUI.hover=h&&['dist','path','area'].includes(h.kind)?h:null}
   refPoint(){return null}
   drawPreview(){}
   cancel(){if(this.it&&this.orig){const it=this.it;delete it.off;delete it.lab;if(this.orig.off!==undefined)it.off=this.orig.off;if(this.orig.lab!==undefined)it.lab=this.orig.lab}this.it=null;this.orig=null;mkUI.hover=null}
@@ -13842,25 +14292,25 @@ class MkTwoPointTool{
     if(this.kind==='circle')return this.a?'⭕ Círculo de revisión: clic para el radio':'⭕ Círculo de revisión: clic en el centro';
     if(this.kind==='arrow')return this.a?'➜ Flecha: clic donde apunta la punta':'➜ Flecha de revisión: clic en el inicio';
     return this.a?`${n} de revisión: clic en la esquina opuesta`:`${n} de revisión: clic en la primera esquina`}
-  refPoint(){return this.a}
+  refPoint(){return mkRef(this.a)}
   onMouseDown(w,s,c){
-    const p=pickPt(w,c);
+    const p=mkPt(w,c);if(!p){c.setMsg(MK_VP_MSG);return}
     if(!this.a){this.a=p;c.setMsg(this.getPrompt());return}
     if(Math.hypot(p.x-this.a.x,p.y-this.a.y)<1e-9)return;
     addItem({kind:this.kind,pts:[this.a,p]});this.a=null;c.setMsg('Marca agregada · '+this.getPrompt());
   }
-  onMouseMove(w,s,c){this.cur=pickPt(w,c)}
+  onMouseMove(w,s,c){this.cur=mkPt(w,c)}
   drawPreview(x){if(this.a&&this.cur)drawItem(x,{kind:this.kind,pts:[this.a,this.cur],color:mk().color},false)}
   cancel(){this.a=null;this.cur=null}
 }
 class MkNoteTool{
   getPrompt(){return'💬 Nota de revisión: clic donde va la nota y escriba el texto (Enter acepta, Shift+Enter nueva línea, Esc cancela)'}
   onMouseDown(w,s,c){
-    const p=pickPt(w,c);const r=canvas.getBoundingClientRect();
+    const p=mkPt(w,c);if(!p){c.setMsg(MK_VP_MSG);return}const r=canvas.getBoundingClientRect();
     const box=document.createElement('textarea');box.id='mk-note-input';box.rows=2;
     box.style.cssText=`position:fixed;left:${r.left+s.x}px;top:${r.top+s.y-50}px;z-index:2000;width:220px;background:#14181b;color:${mk().color};border:1px solid ${mk().color};border-radius:4px;font:13px Arial;padding:4px`;
     document.body.appendChild(box);setTimeout(()=>box.focus(),0);
-    const done=ok=>{const t=box.value.trim();box.remove();if(ok&&t)addItem({kind:'note',pts:[p],text:t})};
+    let fin=false;const done=ok=>{if(fin)return;fin=true;const t=box.value.trim();box.remove();if(ok&&t)addItem({kind:'note',pts:[p],text:t})};
     box.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();done(true)}else if(e.key==='Escape'){e.preventDefault();done(false)}};
     box.onblur=()=>{if(document.body.contains(box))done(true)};
   }
@@ -13881,7 +14331,18 @@ function itemDist(it,sp){
   if(it.kind==='area'&&P.length>2)d=Math.min(d,segD(sp,P[P.length-1],P[0]));
   return d;
 }
-function itemAt(sp){let best=null,bd=10;for(const it of mk().items){const d=itemDist(it,sp);if(d<bd){bd=d;best=it}}return best}
+function itemAtModel(sp){let best=null,bd=10;for(const it of mk().items){const d=itemDist(it,sp);if(d<bd){bd=d;best=it}}return best}
+// rev23d: en una hoja, la marca se busca dentro de la ventana que está bajo el mouse
+function itemAt(sp){
+  if(!inLayout())return itemAtModel(sp);
+  let best=null,bd=10;
+  for(const vp of mkViewports()){
+    const r=vpScreenRect(vp);
+    if(sp.x<r[0]||sp.x>r[0]+r[2]||sp.y<r[1]||sp.y>r[1]+r[3])continue;
+    withModelCtx(vp,()=>{for(const it of mk().items){const d=itemDist(it,sp);if(d<bd){bd=d;best=it}}});
+  }
+  return best;
+}
 class MkEraseTool{
   getPrompt(){return'🧽 Borrar marca: clic sobre una medición, forma o nota de revisión (no borra nada del dibujo)'}
   onMouseDown(w,s,c){if(!mkVisible()){c.setMsg('Las marcas están ocultas: actívelas con “Mostrar marcas”');return}
@@ -13889,6 +14350,10 @@ class MkEraseTool{
     removeItem(it);c.setMsg('Marca borrada · '+this.getPrompt())}
   onMouseMove(w,s){const h=mkVisible()?itemAt(s):null;if(h!==mkUI.hover){mkUI.hover=h}}
   drawPreview(){}cancel(){mkUI.hover=null}
+}
+for(const C of [MkPointsTool,MkTwoPointTool]){
+  const o=C.prototype.drawPreview;
+  C.prototype.drawPreview=function(x){if(!inLayout())return o.call(this,x);mkEachViewport(x,()=>o.call(this,x))};
 }
 function removeItem(it){const M=mk();M.items=M.items.filter(x=>x!==it);mkUI.hover=null;scheduleAutosave();refreshPanel();render()}
 
@@ -14020,7 +14485,7 @@ panel.innerHTML=`<div class="mk-head"><span>🔎 Cubicación y revisión</span><
   <div id="mk-meas" style="margin-top:6px"></div></div>
  <div class="mk-row"><label class="mk-chk"><input type="checkbox" id="mk-show"> Mostrar marcas</label></div>
  <div class="mk-row"><button class="mk-btn" id="mk-xlsx">⬇ Descargar Excel</button><button class="mk-btn danger" id="mk-clear">Borrar todas</button></div>
- <div class="mk-empty" style="font-size:11px">Las marcas no se imprimen, no aparecen en las hojas (layouts) ni se exportan a DWG/DXF. Se guardan con el archivo de FácilTrazo.</div>
+ <div class="mk-empty" style="font-size:11px">Las marcas no se imprimen, no salen en el PDF de la hoja ni se dibujan en DWG/DXF. En una hoja (layout) se miden y se ven dentro de las ventanas, con los valores reales del modelo. Se guardan con el archivo de FácilTrazo.</div>
 </div>`;
 document.body.appendChild(panel);
 function openPanel(focus){
@@ -14995,7 +15460,7 @@ window.__ftDocs=()=>tabs.map(t=>({d:t.d,name:t===tabs[act]?app.currentFileName:t
 function isBlank(t){
   const d=t.d;if(!d)return true;
   const lay=(d.layouts||[]).some(L=>(L.entities||[]).length);
-  return!d.entities.length&&!lay&&!(d.history&&d.history.length)&&!(d._ms&&d._ms.entities&&d._ms.entities.length)&&(!t.fileName||t.fileName===DEFAULT_FILENAME||/^dibujo-\d+\.json$/.test(t.fileName));
+  return!d.entities.length&&!lay&&!(d.history&&d.history.length)&&!(d._ms&&d._ms.entities&&d._ms.entities.length)&&(!t.fileName||t.fileName===DEFAULT_FILENAME||t.fileName==='faciltrazo.json'||/^dibujo-\d+\.(json|dft)$/.test(t.fileName));
 }
 Object.defineProperty(app,'d',{configurable:true,enumerable:true,
   get(){return raw},
@@ -15053,7 +15518,7 @@ function closeTab(i){
 }
 function newDrawing(){
   const cur=tabs[act];snapGlobals(cur);
-  let k=2;while(tabs.some(x=>x.fileName==='dibujo-'+k+'.json'))k++;const nm='dibujo-'+k+'.json';
+  let k=2;while(tabs.some(x=>x.fileName==='dibujo-'+k+'.dft'||x.fileName==='dibujo-'+k+'.json'))k++;const nm='dibujo-'+k+'.dft';
   const d=createDocument();resetCadView();app.currentFileName=nm;
   const t=newTab(d);t.fileName=nm;tabs.push(t);act=tabs.length-1;
   switching=true;app.d=d;switching=false;
@@ -15758,7 +16223,7 @@ for(const[names,fn,desc,grp]of LIST){
   HELP.push({names,desc,grp});names.forEach(n=>SEEN.add(n));
 }
 // Comandos que ya existían (de otros módulos) se agregan a la ayuda
-const OTHERS={guardar:'Guardar',dxf:'Exportar a DXF (elige versión AutoCAD 2004 a 2018)',guardarcomo:'Guardar como',abrir:'Abrir dibujo (JSON, DWG, DXF)',nuevo:'Dibujo nuevo (otra pestaña)',deshacer:'Deshacer',rehacer:'Rehacer',unidades:'Unidades',
+const OTHERS={guardar:'Guardar',dxf:'Exportar a DXF (elige versión AutoCAD 2004 a 2018)',guardarcomo:'Guardar como',abrir:'Abrir dibujo (DFT, DWG, DXF)',nuevo:'Dibujo nuevo (otra pestaña)',deshacer:'Deshacer',rehacer:'Rehacer',unidades:'Unidades',
   importar:'Importar DWG/DXF dentro del dibujo actual',bloque:'Crear bloque',insertar:'Insertar bloque',buscar:'Buscar en el plano',cubicar:'Panel de cubicación',nube:'Nube de revisión',nota:'Nota de revisión',
   pegar:'Pegar del portapapeles',aislar:'Aislar la selección (ver solo eso)',mostrartodo:'Quitar el aislamiento',imagen:'Insertar imagen',pdf:'Insertar PDF',calculadora:'Calculadora'};
 const GRP2={importar:'Archivo',guardar:'Archivo',guardarcomo:'Archivo',abrir:'Archivo',nuevo:'Archivo',deshacer:'Archivo',rehacer:'Archivo',unidades:'Vista',bloque:'Bloques',insertar:'Bloques',
@@ -15970,7 +16435,7 @@ const _deP=drawEntity;
 drawEntity=function(x,e,sel,ghost=false){
   if(!e||e.type!=='viewport'||x!==sceneCtx||sel||ghost||textScaleOverride!==null||_inVP||!app.d._ms)return _deP(x,e,sel,ghost);
   const w=x.canvas.width,h=x.canvas.height;
-  const key=[e.x,e.y,e.w,e.h,e.center&&e.center.x,e.center&&e.center.y,e.scale,e.twist||0,(e.frozenLayers||[]).join('|'),e.layerId,e.color,
+  const key=[e.x,e.y,e.w,e.h,e.center&&e.center.x,e.center&&e.center.y,e.scale,e.twist||0,(e.frozenLayers||[]).join('|'),e.zone?[e.zone.minX,e.zone.minY,e.zone.maxX,e.zone.maxY,e.zoneClip].join(','):'',e.layerId,e.color,
     view.scale,view.offsetX,view.offsetY,w,h,tok(app.d),tok(app.d._ms.entities),app.d._modelRev||0,app.d._ms.entities.length,JSON.stringify(app.d.layers),forceWhiteToBlackOverride,lineWeightMinPxOverride,unitsSettings.lineTypeScale,unitsSettings.ltReal,unitsSettings.hideWipeouts,e._layer&&e._layer.visible].join('§');
   let c=vpCache.get(e);
   if(!c||c.key!==key){
@@ -16280,8 +16745,8 @@ async function writeTo(h,text){
   if(h.queryPermission){let p=await h.queryPermission({mode:'readwrite'});if(p!=='granted')p=await h.requestPermission({mode:'readwrite'});if(p!=='granted')throw new Error('sin permiso para escribir el archivo')}
   const w=await h.createWritable();await w.write(text);await w.close();
 }
-const TYPES=[{description:'Dibujo FácilTrazo',accept:{'application/json':['.json','.ftz']}},{description:'DXF de AutoCAD (exportar)',accept:{'application/dxf':['.dxf']}},{description:'DWG de AutoCAD (exportar)',accept:{'application/acad':['.dwg']}}];
-function jsonName(n){n=String(n||DEFAULT_FILENAME).replace(/\.(dwg|dxf)$/i,'');return /\.json$/i.test(n)?n:n+'.json'}
+const TYPES=[{description:'Dibujo FácilTrazo (.dft)',accept:{'application/x-faciltrazo':['.dft']}},{description:'DXF de AutoCAD (exportar)',accept:{'application/dxf':['.dxf']}},{description:'DWG de AutoCAD (exportar)',accept:{'application/acad':['.dwg']}}];
+function jsonName(n){n=String(n||DEFAULT_FILENAME).replace(/\.(dwg|dxf|json|ftz)$/i,'');return /\.dft$/i.test(n)?n:n+'.dft'}
 const _doSave0=doSave,_openSaveAs=openSaveAsModal,_doOpen=doOpen;
 const mark=(d,t)=>{try{window.__ftMarkSaved&&window.__ftMarkSaved(d,t)}catch(e){}};
 const _doSave=function(){_doSave0.apply(this,arguments);mark(app.d)};
@@ -16327,7 +16792,7 @@ doSave=function(){
 openSaveAsModal=function(){if(!fsa)return _openSaveAs();saveWithPicker()};
 doOpen=function(){
   if(!fsa||typeof window.showOpenFilePicker!=='function')return _doOpen();
-  window.showOpenFilePicker({types:[{description:'FácilTrazo, DWG o DXF',accept:{'application/json':['.json'],'image/vnd.dwg':['.dwg'],'image/vnd.dxf':['.dxf']}}],multiple:false})
+  window.showOpenFilePicker({types:[{description:'FácilTrazo (.dft), DWG o DXF',accept:{'application/x-faciltrazo':['.dft','.ftz'],'image/vnd.dwg':['.dwg'],'image/vnd.dxf':['.dxf']}}],multiple:false})
     .then(async([h])=>{
       const f=await h.getFile();const ext=(f.name.split('.').pop()||'').toLowerCase();
       if(ext==='dwg'||ext==='dxf'){startCadImport(f,'open');return}
@@ -16449,15 +16914,15 @@ function advEm(str,font,bold,italic){
   return w;
 }
 
-function exportDXFText(ver){
+function exportDXFText(ver,pl){
   const d=app.d;
   const prevSpace=d.space||'model';
   const fromLayout=prevSpace!=='model'&&typeof setSpace==='function';
   if(fromLayout)setSpace('model',true);
-  try{return build(d,ver)}finally{if(fromLayout){setSpace(prevSpace,true);render()}}
+  try{return build(d,ver,pl)}finally{if(fromLayout){setSpace(prevSpace,true);render()}}
 }
 
-function build(d,ver){
+function build(d,ver,pl){
   ver=FT_DXF_SKELS[ver]?ver:'2018';UTF8=ver!=='2004';const NEW=ver!=='2004';
   const skel=FT_DXF_SKELS[ver].split('\n');const P=[];for(let i=0;i+1<skel.length;i+=2)P.push([skel[i].trim(),skel[i+1]]);
   const hv=name=>P.findIndex(p=>p[0]==='9'&&p[1]===name);
@@ -16896,8 +17361,22 @@ function build(d,ver){
   const BRW=new Writer(0);
   for(const B of BR){BRW.g(0,'BLOCK_RECORD');BRW.g(5,B.brh);BRW.g(330,TH.BLOCK_RECORD||'9');BRW.g(100,'AcDbSymbolTableRecord');BRW.g(100,'AcDbBlockTableRecord');BRW.g(2,enc(B.name));BRW.g(340,'0');if(NEW){BRW.g(70,0);BRW.g(280,1);BRW.g(281,0)}}
 
+  // rev23: paquete con el documento completo de FácilTrazo (cotas, hojas, ficha, escala, Cubicación...), comprimido.
+  // Va en un diccionario propio (FACILTRAZO_DATA) colgado del diccionario raíz: AutoCAD lo conserva sin mostrarlo.
+  // La "huella" de la geometría exportada permite saber, al reabrir, si el archivo fue modificado fuera de FácilTrazo.
+  let PLW=null,plRoot='A',plD=null;
+  if(pl&&pl.b64&&window.__ftSigPairs){
+    const ko=P.findIndex((q,j)=>q[0]==='2'&&q[1]==='OBJECTS'&&j>0&&P[j-1][1]==='SECTION');
+    if(ko>=0){for(let j=ko;j<ko+12;j++){if(P[j][0]==='5'){plRoot=P[j][1];break}}}
+    plD=W.nh();const hX=W.nh();
+    PLW=new Writer(0);
+    PLW.g(0,'DICTIONARY');PLW.g(5,plD);PLW.g(330,plRoot);PLW.g(100,'AcDbDictionary');PLW.g(281,1);PLW.g(3,'PAYLOAD');PLW.g(350,hX);
+    PLW.g(0,'XRECORD');PLW.g(5,hX);PLW.g(330,plD);PLW.g(100,'AcDbXrecord');PLW.g(280,1);
+    PLW.g(1,'FTDATA1');PLW.g(1,JSON.stringify(window.__ftSigPairs(BW.out.concat(EW.out))));
+    for(let q=0;q<pl.b64.length;q+=1000)PLW.g(1,pl.b64.slice(q,q+1000));
+  }
   // ----- armar el archivo sobre el esqueleto -----
-  const out=[];let i=0;let table=null;
+  const out=[];let i=0;let table=null;let nDict=0;
   const setH=(name,vals)=>{const k=hv(name);if(k<0)return;for(let j=0;j<vals.length;j++)P[k+1+j][1]=vals[j]};
   // extensión
   let bx0=Infinity,by0=Infinity,bx1=-Infinity,by1=-Infinity;
@@ -16930,9 +17409,12 @@ function build(d,ver){
       if(curTable==='BLOCK_RECORD')pushAll(out,BRW.out);
       curTable=null;
     }
+    if(PLW&&section==='OBJECTS'&&c==='0'&&v==='DICTIONARY'){if(++nDict===2)out.push('  3','FACILTRAZO_DATA','350',plD)}
     if(c==='0'&&v==='ENDSEC'){
       if(section==='BLOCKS')pushAll(out,BW.out);
       if(section==='ENTITIES')pushAll(out,EW.out);
+      if(PLW&&section==='CLASSES')pushAll(out,['  0','CLASS','  1','XRECORD','  2','AcDbXrecord','  3','ObjectDBX Classes',' 90','0',' 91','0','280','1','281','0']);
+      if(PLW&&section==='OBJECTS')pushAll(out,PLW.out);
     }
     out.push(c.padStart(3,' '),v);
   }
@@ -16946,14 +17428,15 @@ const DXF_VERS=[['2018','AutoCAD 2018 (formato actual: AutoCAD 2018 a 2026)'],['
 const DXF_VER_KEY='faciltrazo_dxf_version_v1';
 function lastVer(){try{const v=localStorage.getItem(DXF_VER_KEY);return FT_DXF_SKELS[v]?v:'2018'}catch(e){return'2018'}}
 // Para "Guardar como" con extensión .dxf: entrega el archivo listo en la última versión elegida
-window.__dxfMake=function(ver){
-  const r=exportDXFText(ver||lastVer());
+window.__dxfMake=function(ver,pl){
+  const r=exportDXFText(ver||lastVer(),pl);
   const bytes=r.utf8?new TextEncoder().encode(r.text):toBytes(r.text);
   return{blob:new Blob([bytes],{type:'application/dxf'}),ver:r.ver,stats:r.stats};
 };
 async function exportDXFVersion(ver){
   let r;
-  try{r=exportDXFText(ver)}catch(err){console.error(err);setMsg('No se pudo exportar a DXF: '+err.message);return}
+  let pl;try{pl=await window.__ftPayload()}catch(e){console.warn(e)}
+  try{r=exportDXFText(ver,pl)}catch(err){console.error(err);setMsg('No se pudo exportar a DXF: '+err.message);return}
   try{localStorage.setItem(DXF_VER_KEY,r.ver)}catch(e){}
   const base=(app.currentFileName||'faciltrazo').replace(/\.(json|dxf|dwg|ftz)$/i,'');
   const fname=sanitizeFileName(base)+'.dxf';
@@ -17002,7 +17485,7 @@ if(typeof EXTRA_COMMANDS==='object'){EXTRA_COMMANDS.dxf=exportDXF;EXTRA_COMMANDS
 // ===== Guardar / exportar a DWG de AutoCAD =====
 // Genera el DXF (módulo add_dxfout) y lo convierte a DWG con un conversor propio (acadrust compilado a
 // WebAssembly, ~1,4 MB comprimido) que va dentro de este mismo archivo. Todo ocurre en el equipo: nada se sube.
-// El dibujo de trabajo sigue en formato FácilTrazo (.json), que es el que conserva todo.
+// El dibujo de trabajo sigue en formato FácilTrazo (.dft), que es el que conserva todo.
 (function(){
 const DWGCONV=(function(){'use strict';
 /* @ts-self-types="./dwgconv.d.ts" */
@@ -17338,7 +17821,8 @@ const nextPaint=()=>new Promise(r=>requestAnimationFrame(()=>setTimeout(r,30)));
 // Entrega el DWG listo: {blob, ver, stats, bytes}. Sirve también a "Guardar como" con extensión .dwg.
 window.__dwgMake=async function(ver){
   ver=ver||lastDwgVer();
-  const dxf=window.__dxfMake(ver);                       // mismo dibujo, en la versión pedida
+  let pl;try{pl=await window.__ftPayload()}catch(e){console.warn(e)}   // rev23: lleva dentro el documento completo de FácilTrazo
+  const dxf=window.__dxfMake(ver,pl);                    // mismo dibujo, en la versión pedida
   const dxfBytes=new Uint8Array(await dxf.blob.arrayBuffer());
   await ensureConv();
   let out;
@@ -17407,7 +17891,7 @@ if(typeof EXTRA_COMMANDS==='object'){EXTRA_COMMANDS.dwg=exportDWG;EXTRA_COMMANDS
 // · General: color del lienzo (4), letra de la interfaz, zoom de la rueda, acceso a Unidades.
 //   Se guarda en este navegador/equipo (localStorage) y vale para todos los dibujos.
 // · Este dibujo: ficha, letra de los textos nuevos, grilla fija y modo revisión.
-//   Viaja DENTRO del archivo del dibujo (.json/.ftz), en el campo "ftConfig".
+//   Viaja DENTRO del archivo del dibujo (.dft), en el campo "ftConfig".
 // No repite lo que ya existe en otros lugares (Unidades, cotas, Esc. 1:50, snaps, tipo de DXF/DWG):
 // para las unidades solo ofrece un botón que abre el diálogo de siempre.
 (function(){
@@ -17732,7 +18216,7 @@ applyG(false);
 // =====================================================================================
 (function(){
 'use strict';
-const BUILD='1.9.1-rev22';
+const BUILD='1.9.1-rev23d';
 const KEY='faciltrazo_mcp_v1';
 const PORTS=[47821,47822,47823,47824,47825];
 let S={on:false,token:'',port:0};
@@ -18432,7 +18916,7 @@ OPS.captura=async a=>{
 };
 
 // --- Exportar / abrir / nuevo ---
-function baseName(){return(app.currentFileName||'dibujo').replace(/\.(json|dxf|dwg|ftz)$/i,'')}
+function baseName(){return(app.currentFileName||'dibujo').replace(/\.(json|dft|dxf|dwg|ftz)$/i,'')}
 OPS.exportar=async a=>{
   const d=app.d;
   const fmt=String(a.formato||'dwg').toLowerCase();
@@ -18444,30 +18928,32 @@ OPS.exportar=async a=>{
     const r=await window.__dwgMake(ver);bytes=r.bytes;stats=r.stats;nombre=baseName()+'.dwg';
   }else if(fmt==='dxf'){
     if(!['2018','2013','2010','2004'].includes(ver))throw new IaError('version DXF: 2018, 2013, 2010 o 2004');
-    const r=window.__dxfMake(ver);bytes=new Uint8Array(await r.blob.arrayBuffer());stats=r.stats;nombre=baseName()+'.dxf';
-  }else if(fmt==='json'){
-    bytes=new TextEncoder().encode(serializeDocument(d));nombre=baseName()+'.json';
-  }else throw new IaError('formato: dwg, dxf o json');
+    let pl;try{pl=await window.__ftPayload()}catch(e){}const r=window.__dxfMake(ver,pl);bytes=new Uint8Array(await r.blob.arrayBuffer());stats=r.stats;nombre=baseName()+'.dxf';
+  }else if(fmt==='dft'){
+    bytes=new TextEncoder().encode(serializeDocument(d));nombre=baseName()+'.dft';
+  }else throw new IaError('formato: dwg, dxf o dft');
   const head=fmt==='dwg'?String.fromCharCode(...bytes.slice(0,6)):null;
-  return{formato:fmt,version:fmt==='json'?null:ver,nombre,bytes:bytes.length,cabecera:head,estadisticas:stats?{figuras:stats.ents,cotas:stats.dims,bloques:stats.blocks,no_exportado:stats.skipped||{}}:null,base64:bytesToB64(bytes),revision:revOf(d)};
+  return{formato:fmt,version:fmt==='dft'?null:ver,nombre,bytes:bytes.length,cabecera:head,estadisticas:stats?{figuras:stats.ents,cotas:stats.dims,bloques:stats.blocks,no_exportado:stats.skipped||{}}:null,base64:bytesToB64(bytes),revision:revOf(d)};
 };
 OPS.abrir=async a=>{
-  const name=String(a.nombre||'dibujo.json');const ext=(name.split('.').pop()||'').toLowerCase();
+  const name=String(a.nombre||'dibujo.dft');const ext=(name.split('.').pop()||'').toLowerCase();
   if(!a.base64)throw new IaError('Falta el contenido del archivo');
   const bytes=b64ToBytes(a.base64);let lectorUsado='';
-  if(ext==='json'){
+  if(ext==='json'||ext==='dft'||ext==='ftz'){
     const txt=new TextDecoder().decode(bytes);
-    try{app.d=deserializeDocument(txt)}catch(e){throw new IaError('El archivo JSON no es un dibujo de FácilTrazo: '+e.message)}
-    app.currentFileName=name;updateFileNameDisplay();onChange();zoomExtents();
+    try{app.d=deserializeDocument(txt)}catch(e){throw new IaError('El archivo no es un dibujo de FácilTrazo: '+e.message)}
+    app.currentFileName=name.replace(/\.(json|ftz)$/i,'.dft');updateFileNameDisplay();onChange();zoomExtents();
   }else if(ext==='dwg'||ext==='dxf'){
     const file=new File([bytes],name);
-    const r=await readCadFileToDxfText(file);lectorUsado=r.lector||'';const info=CadImport.inspect(r.text);
+    const r=await readCadFileToDxfText(file);lectorUsado=r.lector||'';
+    if(a.modo!=='insertar'&&typeof window.__ftPayloadOpen==='function'){let hecho=false;try{hecho=await window.__ftPayloadOpen(r.text,file,null)}catch(e7){console.warn(e7)}if(hecho){try{hideBusy()}catch(e){}return OPS.estado()}}
+    const info=CadImport.inspect(r.text);
     const unit=a.unidad&&UNIT_FACTORS[a.unidad]?a.unidad:suggestImportUnit(info).unit;
     const res=CadImport.convert(r.text,{unitFactor:UNIT_FACTORS[unit]});
     const mode=a.modo==='insertar'?'insert':'open';
     applyCadImport(res,{file,mode,text:r.text,kind:r.kind,info},unit,mode);
     try{hideBusy()}catch(e){}
-  }else throw new IaError('Formato no soportado: .'+ext+' (se abre .json, .dwg y .dxf)');
+  }else throw new IaError('Formato no soportado: .'+ext+' (se abre .dft, .dwg y .dxf)');
   setMsg('🤖 IA: abrió '+name+(lectorUsado==='respaldo'?' · ⚠ lector DWG de respaldo: puede faltar el color RGB':''));
   return OPS.estado();
 };
@@ -18993,7 +19479,7 @@ renderToolbar();
 //  · Se puede instalar desde Edge/Chrome (ícono propio, ventana propia).
 //  · Queda disponible sin internet (service worker) y se actualiza sola al publicar mejoras.
 //  · Los archivos .ftz/.json/.dwg/.dxf abiertos con doble clic llegan por la cola de lanzamiento
-//    (launchQueue) y se abren directo; los .json/.ftz conservan su archivo para Guardar (Ctrl+S).
+//    (launchQueue) y se abren directo; los .ftz conservan su archivo para Guardar (Ctrl+S).
 // Abierto como archivo local (file://) o dentro de un panel, nada de esto se activa: el programa
 // funciona igual que siempre.
 (function(){
@@ -19014,7 +19500,7 @@ async function openLaunched(h){
   try{
     const f=await h.getFile();
     const ext=(f.name.split('.').pop()||'').toLowerCase();
-    if(ext==='dwg'||ext==='dxf'){startCadImport(f,'open');return}
+    if(ext==='dwg'||ext==='dxf'){window.__ftOpenHandle=h;startCadImport(f,'open');return}
     const text=await f.text();
     app.d=deserializeDocument(text);
     if(typeof window.__ftSetHandle==='function'&&h.createWritable)window.__ftSetHandle(app.d,h);
@@ -19081,6 +19567,188 @@ function countWipeouts(){
   };
   updateTapasBtn();
 })();
+// =====================================================================================
+// ========== FácilTrazo rev23: DWG/DXF CON TODOS LOS DATOS · FORMATO PROPIO .dft · GUARDAR / GUARDAR COMO ==========
+// =====================================================================================
+//  · Todo DWG o DXF que FácilTrazo guarda lleva dentro, oculto, el documento completo (cotas editables, hojas,
+//    ficha, escala de anotación, marcas de Cubicación...). AutoCAD y otros programas lo ignoran y lo conservan.
+//    Al reabrirlo en FácilTrazo se recupera todo. Si el archivo se modificó fuera de FácilTrazo (la geometría ya no
+//    coincide con la huella guardada), o si es un DWG/DXF de otro programa, se abre solo la geometría, como siempre.
+//  · Formato propio: .dft (mismo contenido que el antiguo .json). El .json ya no se ofrece ni se guarda; uno antiguo se puede abrir y se guarda como .dft.
+//  · "Guardar" reemplaza el archivo actual sin preguntar; "Guardar como…" pregunta nombre, carpeta y formato.
+//    Un DWG/DXF de otro programa nunca se sobrescribe: el primer Guardar propone un .dft junto a él.
+(function(){
+const hasFsa=()=>typeof window.showSaveFilePicker==='function'&&window.isSecureContext!==false;
+const extOf=n=>((String(n||'').match(/\.([a-z0-9]+)$/i)||[])[1]||'').toLowerCase();
+const nextPaint2=()=>new Promise(r=>requestAnimationFrame(()=>setTimeout(r,30)));
+function defp(d,k,v){try{Object.defineProperty(d,k,{value:v,writable:true,configurable:true,enumerable:false})}catch(e){}}
+function setH(d,h,fmt){if(!d)return;defp(d,'__fh',h||null);defp(d,'__fmt',fmt||'dft')}
+
+// ----- paquete comprimido -----
+const toB64=u8=>{let s='';const C=0x8000;for(let i=0;i<u8.length;i+=C)s+=String.fromCharCode.apply(null,u8.subarray(i,i+C));return btoa(s)};
+const fromB64=b=>{const s=atob(b);const u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u};
+async function gz(u8){return new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer())}
+async function gunz(u8){return new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer())}
+window.__ftPayload=async function(){
+  try{if(localStorage.getItem('faciltrazo_embed')==='0')return undefined}catch(e){}
+  if(typeof CompressionStream!=='function')return undefined;
+  const json=serializeDocument(app.d);
+  return{b64:toB64(await gz(new TextEncoder().encode(json))),len:json.length};
+};
+// Huella de la geometría: cantidad de figuras por tipo y suma de coordenadas. Se calcula igual al guardar y al abrir.
+window.__ftSigPairs=function(a){
+  const n={};let sx=0,sy=0,cur='',skip=false;
+  for(let i=0;i+1<a.length;i+=2){
+    const c=String(a[i]).trim(),v=String(a[i+1]).trim();
+    if(c==='0'){cur=v;skip=(v==='BLOCK'||v==='ENDBLK'||v==='SEQEND');if(!skip)n[v]=(n[v]||0)+1;}
+    else if(skip)continue;
+    else if(c==='10')sx+=parseFloat(v)||0;
+    else if(c==='20')sy+=parseFloat(v)||0;
+    else if(c==='11'&&cur==='LINE')sx+=parseFloat(v)||0;
+    else if(c==='21'&&cur==='LINE')sy+=parseFloat(v)||0;
+  }
+  return{n,sx:Math.round(sx*10000)/10000,sy:Math.round(sy*10000)/10000};
+};
+function secPairs(text,name){
+  const m=new RegExp('\\n *2\\r?\\n'+name+'\\r?\\n').exec(text);if(!m)return[];
+  const a=m.index+m[0].length;let b=text.indexOf('\nENDSEC',a);if(b<0)b=text.length;
+  const L=text.slice(a-1,b).split(/\r?\n/);   // empieza en el "0" de la primera figura
+  if(L.length&&L[0]==='')L.shift();
+  if(L.length%2)L.pop();   // el último "0" es el de ENDSEC
+  return L.map(x=>x.trim());
+}
+function entPairs(text){return secPairs(text,'BLOCKS').concat(secPairs(text,'ENTITIES'))}
+function sigOk(a,b){
+  if(!a||!b)return false;
+  const ka=Object.keys(a.n).sort(),kb=Object.keys(b.n).sort();
+  if(ka.join()!==kb.join())return false;
+  for(const k of ka)if(a.n[k]!==b.n[k])return false;
+  const tol=v=>0.002+1e-12*Math.abs(v);
+  return Math.abs(a.sx-b.sx)<=tol(a.sx)&&Math.abs(a.sy-b.sy)<=tol(a.sy);
+}
+function extractPayload(text){
+  const k=text.indexOf('FTDATA1');if(k<0)return null;
+  let e=text.slice(k).search(/\r?\n *0\r?\n/);const seg=e<0?text.slice(k):text.slice(k,k+e);
+  const L=seg.split(/\r?\n/);const vals=[];
+  for(let i=1;i+1<L.length;i+=2)if(L[i].trim()==='1')vals.push(L[i+1]);
+  if(vals.length<2)return null;
+  let sig;try{sig=JSON.parse(vals[0])}catch(err){return null}
+  return{sig,b64:vals.slice(1).join('')};
+}
+window.__ftSigText=text=>window.__ftSigPairs(entPairs(text));window.__ftPayloadInfo=text=>{const p=extractPayload(text);return p?{sig:p.sig,kb:Math.round(p.b64.length/1024)}:null};
+// Intenta abrir el DWG/DXF con su paquete. Devuelve true si lo abrió.
+window.__ftPayloadOpen=async function(text,file,handle){
+  const p=extractPayload(text);if(!p)return false;
+  let cur=null;try{cur=window.__ftSigPairs(entPairs(text))}catch(e){}
+  if(!sigOk(p.sig,cur)){
+    setMsg('Este archivo trae datos de FácilTrazo, pero se modificó fuera del programa: se abre solo el dibujo (cotas, hojas y marcas guardadas no se aplican).');
+    return false;
+  }
+  const json=new TextDecoder().decode(await gunz(fromB64(p.b64)));
+  const d=deserializeDocument(json);
+  app.d=d;
+  const ext=extOf(file.name);
+  if(handle&&handle.createWritable)setH(app.d,handle,ext);
+  app.currentFileName=file.name;
+  try{updateFileNameDisplay()}catch(e){}
+  try{invalidateEntitiesCache()}catch(e){}
+  onChange();zoomExtents();
+  setMsg('Abierto '+file.name+' con todos los datos de FácilTrazo (cotas editables, hojas, escala, marcas)'+(handle?' · Guardar (Ctrl+S) lo actualiza directamente':''));
+  return true;
+};
+
+// ----- aviso "Archivo guardado" -----
+const ov=document.createElement('div');ov.className='modal-overlay';ov.id='ft-saved-modal';
+ov.innerHTML='<div class="modal" style="min-width:360px;max-width:460px"><div class="modal-title">✔ Archivo guardado</div>'
+ +'<div class="modal-field"><div id="ft-saved-name" style="font-size:15px;font-weight:600;word-break:break-all"></div><div id="ft-saved-info" class="hint" style="margin-top:6px"></div><div id="ft-saved-dir" class="hint" style="margin-top:4px"></div></div>'
+ +'<div class="modal-buttons"><button class="modal-btn primary" id="ft-saved-ok">Aceptar</button></div></div>';
+document.body.appendChild(ov);
+let savedT=null;
+function closeSaved(){ov.classList.remove('visible');clearTimeout(savedT)}
+ov.querySelector('#ft-saved-ok').onclick=closeSaved;
+ov.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'||e.key==='Escape'){e.preventDefault();closeSaved()}});
+ov.addEventListener('mousedown',e=>{if(e.target===ov)closeSaved()});
+function showSaved(name,info,dir){
+  ov.querySelector('#ft-saved-name').textContent=name;
+  ov.querySelector('#ft-saved-info').textContent=info||'';
+  ov.querySelector('#ft-saved-dir').textContent=dir||'';
+  ov.classList.add('visible');clearTimeout(savedT);savedT=setTimeout(closeSaved,4500);
+  setTimeout(()=>{try{ov.querySelector('#ft-saved-ok').focus()}catch(e){}},30);
+}
+window.__ftShowSaved=showSaved;
+
+// ----- guardar -----
+async function writeTo2(h,data){
+  if(h.queryPermission){let p=await h.queryPermission({mode:'readwrite'});if(p!=='granted')p=await h.requestPermission({mode:'readwrite'});if(p!=='granted')throw new Error('sin permiso para escribir el archivo')}
+  const w=await h.createWritable();await w.write(data);await w.close();
+}
+const fmtLabel={dft:'Dibujo FácilTrazo (.dft)',dwg:'DWG de AutoCAD',dxf:'DXF de AutoCAD'};
+async function writeDoc(d,h,fmt){
+  const json=serializeDocument(d);
+  let blob,info;
+  if(fmt==='dwg'){
+    showBusy('Generando DWG de AutoCAD…');await nextPaint2();
+    try{const r=await window.__dwgMake();blob=r.blob;info='DWG AutoCAD '+r.ver+' · '+(r.stats.ents||0)+' figuras, '+(r.stats.dims||0)+' cotas'}
+    finally{hideBusy()}
+  }else if(fmt==='dxf'){
+    let pl;try{pl=await window.__ftPayload()}catch(e){console.warn(e)}
+    const r=window.__dxfMake(undefined,pl);blob=r.blob;
+    info='DXF AutoCAD '+r.ver+' · '+(r.stats.ents||0)+' figuras, '+(r.stats.dims||0)+' cotas';
+  }else{blob=new Blob([json],{type:'application/x-faciltrazo'});info=fmtLabel.dft}
+  await writeTo2(h,blob);
+  setH(d,h,fmt);
+  if(d===app.d){app.currentFileName=h.name;try{updateFileNameDisplay()}catch(e){}}
+  try{window.__ftMarkSaved&&window.__ftMarkSaved(d,json)}catch(e){}
+  const kb=Math.round(blob.size/1024);
+  setMsg('Guardado: "'+h.name+'"');
+  showSaved(h.name,info+' · '+(kb>=1024?(kb/1024).toFixed(1)+' MB':kb+' KB'),'Carpeta: la que eligió en el cuadro de guardado (el navegador entrega el nombre del archivo, no la ruta completa).');
+}
+const T_DFT={description:'Dibujo FácilTrazo (.dft)',accept:{'application/x-faciltrazo':['.dft']}};
+const T_DWG={description:'DWG de AutoCAD',accept:{'application/acad':['.dwg']}};
+const T_DXF={description:'DXF de AutoCAD',accept:{'application/dxf':['.dxf']}};
+function suggest(d,fmt){const base=String(app.currentFileName||'dibujo').replace(/\.(json|dft|ftz|dwg|dxf)$/i,'')||'dibujo';return base+'.'+fmt}
+async function saveAs(d,pref){
+  pref=pref==='dwg'||pref==='dxf'?pref:'dft';
+  const types=pref==='dwg'?[T_DWG,T_DFT,T_DXF]:pref==='dxf'?[T_DXF,T_DFT,T_DWG]:[T_DFT,T_DWG,T_DXF];
+  const opts={suggestedName:suggest(d,pref),types,excludeAcceptAllOption:true};
+  const start=d.__fh||d.__src;
+  let h;
+  try{h=await window.showSaveFilePicker(start?{...opts,startIn:start}:opts)}
+  catch(err){
+    if(err&&err.name==='AbortError'){setMsg('Guardado cancelado');return false}
+    try{h=await window.showSaveFilePicker(opts)}
+    catch(e2){if(e2&&e2.name==='AbortError'){setMsg('Guardado cancelado');return false}setMsg('No se pudo abrir el cuadro de guardado: '+(e2&&e2.message||e2));return false}
+  }
+  const e=extOf(h.name);const fmt=e==='dwg'||e==='dxf'?e:'dft';
+  try{await writeDoc(d,h,fmt);return true}
+  catch(err){hideBusy();setMsg('No se pudo guardar "'+h.name+'": '+(err&&err.message||err));return false}
+}
+const _prevSave=doSave,_prevSaveAs=openSaveAsModal,_prevOpen=doOpen;
+doSave=async function(){
+  if(!hasFsa())return _prevSave.apply(this,arguments);
+  const d=app.d,h=d.__fh;
+  if(h){
+    try{await writeDoc(d,h,d.__fmt||extOf(h.name)||'dft');return}
+    catch(err){hideBusy();if(err&&err.name==='AbortError')return;setMsg('No se pudo reemplazar "'+h.name+'" ('+(err&&err.message||err)+'): elija dónde guardarlo');setH(d,null,'dft')}
+  }
+  await saveAs(d,'dft');   // dibujo nuevo, o abierto desde un DWG/DXF de otro programa: nunca se sobrescribe el original
+};
+openSaveAsModal=function(){if(!hasFsa())return _prevSaveAs.apply(this,arguments);saveAs(app.d,app.d.__fmt||'dft')};
+doOpen=function(){
+  if(!hasFsa()||typeof window.showOpenFilePicker!=='function')return _prevOpen.apply(this,arguments);
+  window.showOpenFilePicker({types:[{description:'FácilTrazo (.dft), DWG o DXF',accept:{'application/x-faciltrazo':['.dft','.ftz'],'image/vnd.dwg':['.dwg'],'image/vnd.dxf':['.dxf']}}],multiple:false})
+    .then(async([h])=>{
+      const f=await h.getFile();const ext=extOf(f.name);
+      if(ext==='dwg'||ext==='dxf'){window.__ftOpenHandle=h;startCadImport(f,'open');return}
+      const text=await f.text();
+      app.d=deserializeDocument(text);
+      if(/^(json|ftz)$/.test(ext)){setH(app.d,null,'dft');defp(app.d,'__src',h);app.currentFileName=f.name.replace(/\.(json|ftz)$/i,'.dft');updateFileNameDisplay();onChange();zoomExtents();setMsg('Abierto: '+f.name+' · al guardar se crea un archivo .dft; el original no se toca')}
+      else{setH(app.d,h,'dft');app.currentFileName=f.name;updateFileNameDisplay();onChange();zoomExtents();setMsg('Abierto: '+f.name+' · Guardar (Ctrl+S) lo actualiza directamente')}
+    })
+    .catch(err=>{if(err&&err.name==='AbortError')return;_prevOpen.apply(this,arguments)});
+};
+})();
+
 renderPanels();
 setTool('select'); // antes app.tool quedaba en null hasta el primer uso; ahora arranca ya lista
 resizeCanvas();

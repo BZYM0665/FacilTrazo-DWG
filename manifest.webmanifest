@@ -19,8 +19,7 @@
     {
       "action": "./",
       "accept": {
-        "application/x-faciltrazo": [".ftz"],
-        "application/json": [".json"],
+        "application/x-faciltrazo": [".dft", ".ftz"],
         "image/vnd.dxf": [".dxf"],
         "image/vnd.dwg": [".dwg"]
       }

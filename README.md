@@ -8,6 +8,13 @@ Corre completo en el navegador (Windows, Linux y otros sistemas) y se puede inst
 
 > **Licencia:** uso gratuito, **sin modificación**. Esto **no** es software de código abierto (open source): el código se publica para que pueda verse y descargarse, no para que se modifique. Más abajo, en «Licencia», está el resumen.
 
+## Archivos y hojas
+
+- **Abrir y guardar:** DWG y DXF de AutoCAD (versiones 2004 a 2018) y **DFT** (`.dft`, el formato propio de FácilTrazo). Ya no se ofrece guardar en `.json`; un `.json` antiguo se abre igual y queda como `.dft` (el archivo original no se modifica).
+- **Guardar / Guardar como:** Guardar escribe sobre el mismo archivo y avisa; Guardar como pide nombre y formato. Un DWG o DXF de otro programa nunca se sobrescribe.
+- **DWG/DXF guardados por FácilTrazo:** llevan dentro, ocultos, los datos propios del programa (cotas editables, hojas y ventanas, marcas de revisión), así que al reabrirlos vuelve todo igual. Si el archivo se modifica en otro programa, se abre solo la geometría. No se ha probado con AutoCAD.
+- **Hojas:** el botón **🖨 PDF** de la hoja genera un **PDF vectorial** (texto seleccionable, tamaño exacto del papel); con **Mayús + clic** genera el PDF de imagen de antes. **Cubicación y revisión** mide con valores reales tanto en el Modelo como en la hoja (en la hoja, a través de una ventana).
+
 ## Qué hay en este repositorio
 
 - `index.html` — la aplicación completa (un solo archivo).
@@ -43,15 +50,15 @@ Notas:
 FácilTrazo puede trabajar junto a una IA que usted ya use. Se activa en **⚙ Configuración › General › «Conectar con IA»** (viene apagado).
 
 - **Cómo funciona:** la IA se conecta por un conector local («FácilTrazo», estándar MCP) que se instala aparte en Claude Desktop como extensión `.mcpb`. Está en la carpeta `conector/` de este repositorio; los pasos están en «Instalar el conector». Se pide en la conversación: «conecta FácilTrazo».
-- **Qué puede hacer la IA:** leer el dibujo abierto y medirlo; dibujar líneas, polilíneas, rectángulos, círculos, arcos, textos, cotas y achurados; modificar figuras; mirar una captura para comprobar el resultado; y guardar en DWG o DXF.
+- **Qué puede hacer la IA:** leer el dibujo abierto y medirlo; dibujar líneas, polilíneas, rectángulos, círculos, arcos, textos, cotas y achurados; modificar figuras; mirar una captura para comprobar el resultado; y guardar en DWG, DXF o DFT.
 - **Control suyo:** cada orden de la IA es un paso que se puede **deshacer**; respeta el Modo revisión y las capas bloqueadas; la conexión solo funciona en su equipo (no sale a internet) y se apaga desmarcando la casilla.
 - **Probado con:** Claude Desktop y Microsoft Edge. Con otras IA o navegadores no se ha probado.
 
 ### Instalar el conector (Claude Desktop)
 
-Necesita **Claude Desktop** y FácilTrazo **rev18 o más nueva** (la versión se ve arriba a la izquierda, por ejemplo «v1.9.1 · rev18»; la de esta página y la de escritorio 1.0.3 lo son). No hace falta instalar Node.js: el conector usa el que trae Claude Desktop.
+Necesita **Claude Desktop** y FácilTrazo **rev18 o más nueva** (la versión se ve arriba a la izquierda, por ejemplo «v1.9.1 · rev23»). Para abrir y guardar archivos `.dft` por el conector hace falta **rev23 o más nueva** (la de esta página); con la versión de escritorio 1.0.3 (rev18) el conector sigue guardando DWG y DXF, pero no `.dft`. No hace falta instalar Node.js: el conector usa el que trae Claude Desktop.
 
-1. Descargue **[FacilTrazo_conector_Claude_1.1.1.mcpb](https://github.com/BZYM0665/FacilTrazo-DWG/raw/main/conector/FacilTrazo_conector_Claude_1.1.1.mcpb)** (298.430 bytes). Para comprobar la descarga, su huella SHA-256 debe ser `fd1206d2b3a435bb89410bbf007a23e1b024a03f0fd620f925a55652a154e48d`.
+1. Descargue **[FacilTrazo_conector_Claude_1.1.3.mcpb](https://github.com/BZYM0665/FacilTrazo-DWG/raw/main/conector/FacilTrazo_conector_Claude_1.1.3.mcpb)** (290.590 bytes). Para comprobar la descarga, su huella SHA-256 debe ser `f72297e839b3f14f74bd55820b09e410b0933db831e18bbd012ecd8290770b53`.
 2. En Claude Desktop abra **Ajustes → Extensiones**. En la sección «Desarrollador de extensiones» (según la versión, dentro de «Configuración avanzada») pulse **Instalar extensión** y elija el archivo. También puede arrastrar el archivo a esa pantalla. En Windows, el doble clic puede abrir el Bloc de notas si ese tipo de archivo no está asociado a ningún programa: use el botón. Los nombres exactos de las pantallas pueden cambiar con la versión de Claude Desktop.
 3. **Cierre Claude Desktop por completo** (ícono de la bandeja del sistema → Salir) y ábralo de nuevo. Sin esto, la conversación puede seguir usando una versión anterior del conector.
 4. Abra FácilTrazo y, en una conversación nueva de Claude, pida: «conecta FácilTrazo». Si no conecta sola, pegue el código de conexión que Claude le muestre en **⚙ Configuración › General › Conectar con IA**. Edge puede preguntar si permite «Acceder a otras aplicaciones y servicios en este dispositivo»: pulse **Permitir**.
@@ -60,7 +67,7 @@ Para actualizar el conector, quite la extensión anterior en Ajustes → Extensi
 
 ## Privacidad
 
-Los dibujos nunca salen del computador: la página no envía datos a ningún servidor.
+Los dibujos nunca salen del computador: la página no envía datos a ningún servidor. Los DWG y DXF que guarda FácilTrazo llevan dentro, ocultos, una copia de los datos del dibujo (incluidas las marcas de revisión): tenga presente que viajan con el archivo si lo comparte.
 
 Si usted activa la conexión con IA, la IA que use puede leer el dibujo abierto, y ese contenido lo procesa el servicio de esa IA según sus propias condiciones. Active la conexión solo con dibujos que pueda compartir con ese servicio.
 

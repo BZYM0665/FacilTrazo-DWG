@@ -1,7 +1,7 @@
 // FácilTrazo — service worker: deja la aplicación disponible sin internet.
 // Estrategia: intenta la red primero (para recibir actualizaciones) y, si no hay
 // conexión, sirve la última copia guardada. La versión se cambia en cada publicación.
-const VERSION = 'ft-202611180900';
+const VERSION = 'ft-202611241200';
 const FILES = ['./', './index.html', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './maskable-192.png', './maskable-512.png'];
 
