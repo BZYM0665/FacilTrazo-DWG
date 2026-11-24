@@ -289,7 +289,7 @@ body.resizing-v{cursor:row-resize;user-select:none}
 <div class="app">
   <div class="topbar">
     <div class="logo-wrapper">
-      <div class="logo" id="logo-btn" title="Menú de archivo: Nuevo, Guardar, Guardar como, Abrir (también DWG y DXF), Mis dibujos">FácilTrazo <span class="version" id="app-version" title="Versión del programa: 1.9.1-rev23d">v1.9.1 · rev23d</span><span class="logo-filename" id="logo-filename"></span></div>
+      <div class="logo" id="logo-btn" title="Menú de archivo: Nuevo, Guardar, Guardar como, Abrir (también DWG y DXF), Mis dibujos">FácilTrazo <span class="version" id="app-version" title="Versión del programa: 1.9.1-rev23e">v1.9.1 · rev23e</span><span class="logo-filename" id="logo-filename"></span></div>
       <div class="logo-menu" id="logo-menu">
         <div class="logo-menu-filename" id="logo-menu-filename"></div>
         <div class="logo-menu-item" data-action="new"><span class="icon">🆕</span> Nuevo dibujo</div>
@@ -2840,10 +2840,13 @@ function computeDimensionGeom(e){if(!e||!e.dimType)return null;const prec=getPre
     const textW=estimateDimTextWidth(radText,radTH);
     radTextPos={x:hookEnd.x+hookDir*(textW/2+radTH*0.3),y:hookEnd.y};
   }
-  return{leaderLine:{p1:p1,p2:p2},hookLine,circleContact:p1,circleCenter:center,circleRadius:radius,textPos:radTextPos,text:radText,value:radiusConverted,angle:0,textHeight:radTH,arrowSize:radAS}}if(e.dimType==='radiusline'){const{p1,radius,center}=e;if(!p1||!radius||!center)return null;const radiusConverted=fromBaseUnit(radius);const rlTH=e.textHeight||dimSettings.textHeight;const rlAS=e.arrowSize||dimSettings.arrowSize;const rlText='R '+radiusConverted.toFixed(prec)+suffix;
+  return{leaderLine:{p1:p1,p2:p2},hookLine,circleContact:p1,circleCenter:center,circleRadius:radius,textPos:radTextPos,text:radText,value:radiusConverted,angle:0,textHeight:radTH,arrowSize:radAS}}if(e.dimType==='radiusline'){const{radius,center}=e;if(!e.p1||!radius||!center)return null;const radiusConverted=fromBaseUnit(radius);const rlTH=e.textHeight||dimSettings.textHeight;const rlAS=e.arrowSize||dimSettings.arrowSize;const rlText='R '+radiusConverted.toFixed(prec)+suffix;
   // Sin empuje automático: el texto siempre va en el punto medio real de la línea centro-borde,
   // sin importar qué tan chico sea el círculo. Si en un círculo muy chico queda apretado, se
   // reubica moviendo la cota como cualquier otra entidad (seleccionar + arrastrar).
+  // La punta siempre queda en el borde del círculo: p1 solo marca la dirección (si se arrastra su punto, la cota gira alrededor del círculo).
+  const rlDx=e.p1.x-center.x,rlDy=e.p1.y-center.y,rlLen=Math.hypot(rlDx,rlDy);
+  const p1=rlLen<1e-9?{x:center.x+radius,y:center.y}:{x:center.x+rlDx/rlLen*radius,y:center.y+rlDy/rlLen*radius};
   const rlTextPos={x:(center.x+p1.x)/2,y:(center.y+p1.y)/2};
   return{dimLine:{p1:center,p2:p1},singleArrowAt:'p2',textPos:rlTextPos,text:rlText,value:radiusConverted,angle:0,textHeight:rlTH,arrowSize:rlAS}}if(e.dimType==='diameter'){const{p1,radius,center}=e;if(!p1||!radius||!center)return null;let ux=p1.x-center.x,uy=p1.y-center.y;let ulen=Math.hypot(ux,uy);if(ulen<1e-9){ux=1;uy=0;ulen=1}else{ux/=ulen;uy/=ulen}const dp1={x:center.x-ux*radius,y:center.y-uy*radius};const dp2={x:center.x+ux*radius,y:center.y+uy*radius};const diameter=radius*2;const diameterConverted=fromBaseUnit(diameter);const diaTH=e.textHeight||dimSettings.textHeight;const diaAS=e.arrowSize||dimSettings.arrowSize;const diaText='⌀ '+diameterConverted.toFixed(prec)+suffix;
   // Mismo criterio que radiusline: el texto siempre va en el centro del círculo (punto medio real
@@ -2973,6 +2976,7 @@ class SelectTool{constructor(){this.dragStart=null;this.dragging=false;this.marq
       if(e&&this.dragBefore&&JSON.stringify(e)!==JSON.stringify(this.dragBefore)){
         const after=JSON.parse(JSON.stringify(e));
         executeCommand(c.d,new HandleDragCommand(c.d,entId,this.dragBefore,after));
+        c.onChange();
       }
       this.hitVertex=null;
       this.dragStart=null;
@@ -11143,6 +11147,19 @@ DimDiameterTool.prototype.drawPreview=function(x){
   if(g)drawDimensionGeom(x,g,dimSettings.color,true);
 };
 DimDiameterTool.prototype.cancel=function(){this.circ=null;this.p1=null;this.cur=null};
+// Cota de radio (centro-borde): se elige el círculo/arco con el mismo criterio que la cota de diámetro
+// (respeta el tramo del arco, toma el círculo más chico si se hace clic adentro, y en una hoja funciona a
+// través de las ventanas porque pickCircleAt también ve el modelo).
+DimRadiusLineTool.prototype.onMouseDown=function(w,c){
+  const e=pickCircleAt(w,c.d);
+  if(!e){c.setMsg('No hay círculo o arco bajo el cursor');return}
+  const ang=Math.atan2(w.y-e.center.y,w.x-e.center.x);
+  const contact={x:e.center.x+Math.cos(ang)*e.radius,y:e.center.y+Math.sin(ang)*e.radius};
+  const dim={...baseProps(c.d),color:undefined,type:'dimension',dimType:'radiusline',p1:contact,radius:e.radius,center:{...e.center}};
+  executeCommand(c.d,new AddEntityCommand(c.d,dim));c.onChange();
+  c.setMsg('Cota de radio creada · para reubicarla, selecciónela y arrástrela');
+  ((t)=>setTimeout(()=>{if(app.tool===t)setTool('select')},60))(app.tool);
+};
 
 // ---------- 4) Colores rápidos en las propiedades de capa ----------
 (function(){
@@ -12130,15 +12147,15 @@ function wrapCirclePickTool(cls,isSelecting){
   const o=cls.prototype.onMouseDown;
   cls.prototype.onMouseDown=function(w,a,b){
     const c=(b&&b.d)?b:a;
-    if(!inLayout()||!c||!c.d||!isSelecting(this)||_pickCircleAtL(w,c.d))return o.call(this,w,a,b);
+    const run=()=>o.length>=3?o.call(this,w,a,b):o.call(this,w,c);
+    if(!inLayout()||!c||!c.d||!isSelecting(this)||_pickCircleAtL(w,c.d))return run();
     const px=modelCircleThroughViewport(w);
-    if(!px)return o.call(this,w,a,b);
+    if(!px)return run();
     const arr=c.d.entities;arr.push(px);
-    try{return o.call(this,w,a,b)}finally{const k=arr.indexOf(px);if(k>=0)arr.splice(k,1)}
+    try{return run()}finally{const k=arr.indexOf(px);if(k>=0)arr.splice(k,1)}
   };
 }
 wrapCirclePickTool(DimRadialTool,t=>t.state==='selectCircle');
-wrapCirclePickTool(DimRadiusLineTool,()=>true);
 
 // ---------- Guardar / abrir con hojas ----------
 const _serializeDocumentL=serializeDocument;
@@ -18216,7 +18233,7 @@ applyG(false);
 // =====================================================================================
 (function(){
 'use strict';
-const BUILD='1.9.1-rev23d';
+const BUILD='1.9.1-rev23e';
 const KEY='faciltrazo_mcp_v1';
 const PORTS=[47821,47822,47823,47824,47825];
 let S={on:false,token:'',port:0};
