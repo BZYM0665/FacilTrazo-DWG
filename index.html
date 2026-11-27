@@ -289,7 +289,7 @@ body.resizing-v{cursor:row-resize;user-select:none}
 <div class="app">
   <div class="topbar">
     <div class="logo-wrapper">
-      <div class="logo" id="logo-btn" title="Menú de archivo: Nuevo, Guardar, Guardar como, Abrir (también DWG y DXF), Mis dibujos">FácilTrazo <span class="version" id="app-version" title="Versión del programa: 1.9.1-rev24">v1.9.1 · rev24</span><span class="logo-filename" id="logo-filename"></span></div>
+      <div class="logo" id="logo-btn" title="Menú de archivo: Nuevo, Guardar, Guardar como, Abrir (también DWG y DXF), Mis dibujos">FácilTrazo <span class="version" id="app-version" title="Versión del programa: 1.9.1-rev25">v1.9.1 · rev25</span><span class="logo-filename" id="logo-filename"></span></div>
       <div class="logo-menu" id="logo-menu">
         <div class="logo-menu-filename" id="logo-menu-filename"></div>
         <div class="logo-menu-item" data-action="new"><span class="icon">🆕</span> Nuevo dibujo</div>
@@ -6319,7 +6319,7 @@ function ellipseSamplePoints(e,n){
   const full=isFullEllipse(e);
   if(!n){
     const rmax=Math.max(Math.hypot(e.ux,e.uy),Math.hypot(e.vx,e.vy))*view.scale;
-    n=Math.max(16,Math.min(180,Math.ceil(rmax/3)));
+    n=rmax<3?12:Math.max(24,Math.min(360,Math.ceil(10*Math.sqrt(rmax))));
     n=Math.max(8,Math.ceil(n*(e.t1-e.t0)/(Math.PI*2)));
   }
   const pts=[];
@@ -15545,7 +15545,7 @@ function newDrawing(){
 // ---------- Pestañas arriba ----------
 const css=document.createElement('style');
 css.textContent=`
-#doc-tabs{display:flex;align-items:center;gap:4px;margin-left:12px;min-width:0;overflow-x:auto;flex:1 1 auto;scrollbar-width:thin}
+#doc-tabs{display:flex;align-items:center;gap:4px;margin-left:12px;min-width:120px;overflow-x:auto;flex:1 1 0;scrollbar-width:thin}
 #doc-tabs .dt{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 6px 0 10px;border-radius:7px;cursor:pointer;white-space:nowrap;
   background:#1d2428;border:1px solid #2f383d;color:#aeb7bd;font-size:12px;max-width:220px}
 #doc-tabs .dt:hover{border-color:#4cc2ff;color:#fff}
@@ -15569,7 +15569,10 @@ function renderDocTabs(){
   bar.innerHTML=h;
   bar.querySelectorAll('.dt').forEach(el=>el.onclick=e=>{const x=e.target.closest('[data-x]');if(x){e.stopPropagation();closeTab(+x.dataset.x);return}switchTo(+el.dataset.i)});
   document.getElementById('dt-add').onclick=newDrawing;
+  const on=bar.querySelector('.dt.on');
+  if(on){const r=on.getBoundingClientRect(),v=bar.getBoundingClientRect();if(r.right>v.right-34)bar.scrollLeft+=r.right-v.right+34;else if(r.left<v.left)bar.scrollLeft-=v.left-r.left+4}
 }
+bar.addEventListener('wheel',e=>{if(bar.scrollWidth>bar.clientWidth){bar.scrollLeft+=e.deltaY||e.deltaX;e.preventDefault()}},{passive:false});
 const _ufn=updateFileNameDisplay;updateFileNameDisplay=function(){_ufn.apply(this,arguments);if(tabs[act]){tabs[act].fileName=app.currentFileName;renderDocTabs()}};
 renderDocTabs();
 doNew=function(){newDrawing()};
@@ -15903,7 +15906,7 @@ const PANELS=[
 ];
 const st=document.createElement('style');
 st.textContent=`
-#toolbar{gap:6px;align-items:stretch;padding:2px 0}
+#toolbar{flex-basis:100%;gap:6px;align-items:stretch;padding:2px 0}
 #toolbar .tool-panel{display:flex;flex-direction:column;padding:4px 7px 7px;border:1px solid rgba(76,194,255,.30);border-radius:9px;
   background:linear-gradient(180deg,rgba(76,194,255,.07),rgba(76,194,255,.015) 38%,rgba(0,0,0,0));box-shadow:inset 0 1px 0 rgba(255,255,255,.03),0 2px 6px rgba(0,0,0,.25)}
 #toolbar .tool-panel:hover{border-color:rgba(76,194,255,.55)}
@@ -17175,7 +17178,7 @@ function build(d,ver,pl){
     if(L.arc){const A=L.arc;const n=Math.max(8,Math.ceil(Math.abs(A.delta)*24));const pts=[];for(let i=0;i<=n;i++){const t=A.a0+A.delta*i/n;pts.push({x:A.c.x+Math.cos(t)*A.r,y:A.c.y+Math.sin(t)*A.r})}LWPOLY(w,own,e,pts,false,o)}
     const asz=g.arrowSize||dimSettings.arrowSize;
     for(const A of L.arrows)ARROW(w,own,e,A.tip,A.dir,asz,o);
-    for(const T of L.texts)TEXT(w,own,e,{obl:T.obl,at:T.at,str:dimTexts(T.str),h:T.h,ang:T.ang,ha:1,va:0,style:styleFor('Arial'),W:dimTextW(T.str,T.h)},o);
+    for(const T of L.texts)TEXT(w,own,e,{obl:T.obl,at:T.at,str:dimTexts(T.str),h:T.h,ang:T.ang,ha:1,va:0,style:styleFor(Math.abs(T.obl||0)>1e-6?'isocp.shx':'Arial'),W:dimTextW(T.str,T.h)},o);
   }
   function dimColor(e){
     if(e.color&&e.color!=='bylayer')return colorTags(e.color);
@@ -18235,7 +18238,7 @@ applyG(false);
 // =====================================================================================
 (function(){
 'use strict';
-const BUILD='1.9.1-rev24';
+const BUILD='1.9.1-rev25';
 const KEY='faciltrazo_mcp_v1';
 const PORTS=[47821,47822,47823,47824,47825];
 let S={on:false,token:'',port:0};
@@ -20065,7 +20068,7 @@ isoDimLayout=function(e,g){
     const at=_add(_add(center,_mul(perp,gap)),_mul(ex,-Math.tan(obl)*th/2));
     out.texts.push({at,ang,str,h:th,ex,ey:up,obl});
   };
-  const arrow=(tip,dir)=>{const d=_V(dir.x,dir.y);d.side=o;out.arrows.push({tip,dir:d})};
+  const arrow=(tip,dir)=>{out.arrows.push({tip,dir})};
   const arrowsFit=e.arrowMode==='out'?false:L>=asz*2,textFits=tw+gap*2<=L;
   const along=_cross(_sub(e.p3,e.p1),o)/_cross(u,o);
   let side=along<0?-1:1;
