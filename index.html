@@ -289,7 +289,7 @@ body.resizing-v{cursor:row-resize;user-select:none}
 <div class="app">
   <div class="topbar">
     <div class="logo-wrapper">
-      <div class="logo" id="logo-btn" title="Menú de archivo: Nuevo, Guardar, Guardar como, Abrir (también DWG y DXF), Mis dibujos">FácilTrazo <span class="version" id="app-version" title="Versión del programa: 1.9.1-rev25">v1.9.1 · rev25</span><span class="logo-filename" id="logo-filename"></span></div>
+      <div class="logo" id="logo-btn" title="Menú de archivo: Nuevo, Guardar, Guardar como, Abrir (también DWG y DXF), Mis dibujos">FácilTrazo <span class="version" id="app-version" title="Versión del programa: 1.9.1-rev26">v1.9.1 · rev26</span><span class="logo-filename" id="logo-filename"></span></div>
       <div class="logo-menu" id="logo-menu">
         <div class="logo-menu-filename" id="logo-menu-filename"></div>
         <div class="logo-menu-item" data-action="new"><span class="icon">🆕</span> Nuevo dibujo</div>
@@ -1326,6 +1326,7 @@ class HandleDragCommand{constructor(d,entityId,before,after){this.d=d;this.entit
 // Reemplaza por completo las propiedades propias de una entidad (borra claves viejas antes de asignar las nuevas).
 // Necesario cuando una transformación cambia la ESTRUCTURA de la entidad (p.ej. un rectángulo que pasa a ser polilínea).
 function replaceEntityProps(e,newProps){for(const k in e){if(k!=='id')delete e[k]}Object.assign(e,newProps)}
+function ftRectToPolyline(e,corners){const{x:_x,y:_y,w:_w,h:_h,type:_t,id:_i,...rest}=e;replaceEntityProps(e,{...rest,type:'polyline',points:[...corners,{...corners[0]}]})}
 
 function moveEntityBy(e,dx,dy){switch(e.type){case'line':case'refline':e.p1.x+=dx;e.p1.y+=dy;e.p2.x+=dx;e.p2.y+=dy;break;case'rectangle':e.x+=dx;e.y+=dy;break;case'circle':e.center.x+=dx;e.center.y+=dy;break;case'polyline':e.points.forEach(p=>{p.x+=dx;p.y+=dy});break;case'hatch':e.points.forEach(p=>{p.x+=dx;p.y+=dy});break;case'text':e.pos.x+=dx;e.pos.y+=dy;break;case'table':e.pos.x+=dx;e.pos.y+=dy;break;case'arc':e.center.x+=dx;e.center.y+=dy;e.start.x+=dx;e.start.y+=dy;e.end.x+=dx;e.end.y+=dy;break;case'dimension':if(e.p1){e.p1.x+=dx;e.p1.y+=dy}if(e.p2){e.p2.x+=dx;e.p2.y+=dy}if(e.p3){e.p3.x+=dx;e.p3.y+=dy}if(e.p4){e.p4.x+=dx;e.p4.y+=dy}if(e.center){e.center.x+=dx;e.center.y+=dy}break}}
 function rotateEntity(e,center,angle){const cos=Math.cos(angle),sin=Math.sin(angle);const rotate=(p)=>{const dx=p.x-center.x,dy=p.y-center.y;return{x:center.x+dx*cos-dy*sin,y:center.y+dx*sin+dy*cos}};switch(e.type){
@@ -1340,7 +1341,7 @@ case'rectangle':{
   }else{
     // Un ángulo cualquiera ya no puede representarse como rectángulo axis-aligned:
     // se convierte en una polilínea cerrada con la forma correcta (en vez de "romperse" en silencio)
-    replaceEntityProps(e,{type:'polyline',points:[...corners,{...corners[0]}]});
+    ftRectToPolyline(e,corners);
   }
   break;
 }
@@ -1376,7 +1377,7 @@ function mirrorEntity(e,a,b){
       }else{
         // El eje de simetría no es horizontal ni vertical: ya no puede representarse como
         // rectángulo axis-aligned, así que se convierte en polilínea cerrada (forma correcta)
-        replaceEntityProps(e,{type:'polyline',points:[...corners,{...corners[0]}]});
+        ftRectToPolyline(e,corners);
       }
       break;
     }
@@ -1408,6 +1409,7 @@ function mirrorEntity(e,a,b){
     case'dimension':
       if(e.p1)e.p1=reflect(e.p1);if(e.p2)e.p2=reflect(e.p2);
       if(e.p3)e.p3=reflect(e.p3);if(e.p4)e.p4=reflect(e.p4);
+      if(e.center)e.center=reflect(e.center);
       break;
   }
 }
@@ -2810,7 +2812,38 @@ function adjustDimTextForFit(dimLine,text,textHeight,arrowSize){
   const newTextPos={x:dimLine.p2.x+ux*offset,y:dimLine.p2.y+uy*offset};
   return{textPos:newTextPos,leaderLine:{p1:defaultPos,p2:newTextPos}};
 }
-function computeDimensionGeom(e){if(!e||!e.dimType)return null;const prec=getPrecision();const unit=getUnitLabel();const suffix=unit?' '+unit:'';if(e.dimType==='aligned'){const{p1,p2,p3}=e;if(!p1||!p2||!p3)return null;const dx=p2.x-p1.x,dy=p2.y-p1.y;const len=Math.hypot(dx,dy);if(len<1e-10)return null;const ux=dx/len,uy=dy/len;const v13x=p3.x-p1.x,v13y=p3.y-p1.y;const proj=v13x*ux+v13y*uy;const footX=p1.x+proj*ux,footY=p1.y+proj*uy;const perpDist=Math.hypot(p3.x-footX,p3.y-footY);const nx=perpDist>1e-9?(p3.x-footX)/perpDist:0,ny=perpDist>1e-9?(p3.y-footY)/perpDist:0;const dp1={x:p1.x+nx*perpDist,y:p1.y+ny*perpDist};const dp2={x:p2.x+nx*perpDist,y:p2.y+ny*perpDist};const lenConverted=fromBaseUnit(len);const gapStart1={x:p1.x+nx*DIM_EXT_GAP,y:p1.y+ny*DIM_EXT_GAP};const gapStart2={x:p2.x+nx*DIM_EXT_GAP,y:p2.y+ny*DIM_EXT_GAP};const overEnd1={x:dp1.x+nx*DIM_EXT_OVERSHOOT,y:dp1.y+ny*DIM_EXT_OVERSHOOT};const overEnd2={x:dp2.x+nx*DIM_EXT_OVERSHOOT,y:dp2.y+ny*DIM_EXT_OVERSHOOT};const alignedText=lenConverted.toFixed(prec)+suffix;const alignedTH=e.textHeight||dimSettings.textHeight;const alignedAS=e.arrowSize||dimSettings.arrowSize;const alignedFit=adjustDimTextForFit({p1:dp1,p2:dp2},alignedText,alignedTH,alignedAS);return{dimLine:{p1:dp1,p2:dp2},extLines:[{p1:gapStart1,p2:overEnd1},{p1:gapStart2,p2:overEnd2}],textPos:alignedFit.textPos,leaderLine:alignedFit.leaderLine,text:alignedText,value:lenConverted,angle:Math.atan2(dy,dx),textHeight:alignedTH,arrowSize:alignedAS}}if(e.dimType==='horizontal'){const{p1,p2,p3}=e;if(!p1||!p2||!p3)return null;const dp1={x:p1.x,y:p3.y},dp2={x:p2.x,y:p3.y};const value=Math.abs(p2.x-p1.x);const valueConverted=fromBaseUnit(value);const sign=Math.sign(p3.y-p1.y)||1;const gapStart1={x:p1.x,y:p1.y+sign*DIM_EXT_GAP};const gapStart2={x:p2.x,y:p2.y+sign*DIM_EXT_GAP};const overEnd1={x:dp1.x,y:dp1.y+sign*DIM_EXT_OVERSHOOT};const overEnd2={x:dp2.x,y:dp2.y+sign*DIM_EXT_OVERSHOOT};const horizText=valueConverted.toFixed(prec)+suffix;const horizTH=e.textHeight||dimSettings.textHeight;const horizAS=e.arrowSize||dimSettings.arrowSize;const horizFit=adjustDimTextForFit({p1:dp1,p2:dp2},horizText,horizTH,horizAS);return{dimLine:{p1:dp1,p2:dp2},extLines:[{p1:gapStart1,p2:overEnd1},{p1:gapStart2,p2:overEnd2}],textPos:horizFit.textPos,leaderLine:horizFit.leaderLine,text:horizText,value:valueConverted,angle:0,textHeight:horizTH,arrowSize:horizAS}}if(e.dimType==='vertical'){const{p1,p2,p3}=e;if(!p1||!p2||!p3)return null;const dp1={x:p3.x,y:p1.y},dp2={x:p3.x,y:p2.y};const value=Math.abs(p2.y-p1.y);const valueConverted=fromBaseUnit(value);const sign=Math.sign(p3.x-p1.x)||1;const gapStart1={x:p1.x+sign*DIM_EXT_GAP,y:p1.y};const gapStart2={x:p2.x+sign*DIM_EXT_GAP,y:p2.y};const overEnd1={x:dp1.x+sign*DIM_EXT_OVERSHOOT,y:dp1.y};const overEnd2={x:dp2.x+sign*DIM_EXT_OVERSHOOT,y:dp2.y};const vertText=valueConverted.toFixed(prec)+suffix;const vertTH=e.textHeight||dimSettings.textHeight;const vertAS=e.arrowSize||dimSettings.arrowSize;const vertFit=adjustDimTextForFit({p1:dp1,p2:dp2},vertText,vertTH,vertAS);return{dimLine:{p1:dp1,p2:dp2},extLines:[{p1:gapStart1,p2:overEnd1},{p1:gapStart2,p2:overEnd2}],textPos:vertFit.textPos,leaderLine:vertFit.leaderLine,text:vertText,value:valueConverted,angle:-Math.PI/2,textHeight:vertTH,arrowSize:vertAS}}if(e.dimType==='radial'){const{p1,p2:p2Orig,radius,center}=e;if(!p1||!p2Orig||!radius||!center)return null;const radiusConverted=fromBaseUnit(radius);const radTH=e.textHeight||dimSettings.textHeight;const radAS=e.arrowSize||dimSettings.arrowSize;const radTextTmp='R '+radiusConverted.toFixed(prec)+suffix;
+// ---------- Dirección de las cotas horizontales y verticales giradas ----------
+// `rot` (radianes) = cuánto está girada la línea de cota respecto de la horizontal o la vertical
+function ftDimDir(e){
+  if(e.dimType==='horizontal'||e.dimType==='vertical'){
+    if(!e.rot)return e.dimType==='vertical'?{x:0,y:1}:{x:1,y:0};
+    const a=(e.dimType==='vertical'?Math.PI/2:0)+e.rot;return{x:Math.cos(a),y:Math.sin(a)};
+  }
+  const dx=e.p2.x-e.p1.x,dy=e.p2.y-e.p1.y,l=Math.hypot(dx,dy)||1;return{x:dx/l,y:dy/l};
+}
+// Sentido de p1 a p2 a lo largo de la línea de cota (1 o -1): define cuál extremo es 'start'
+function ftDimEnds(e){const u=ftDimDir(e);return(e.p2.x-e.p1.x)*u.x+(e.p2.y-e.p1.y)*u.y>=-1e-9?1:-1}
+// Deja la cota midiendo en la dirección v: horizontal o vertical (la más cercana) más el giro que sobre
+function ftDimSetDir(e,v){
+  const a=((Math.atan2(v.y,v.x)*180/Math.PI)%180+180)%180;
+  let r;if(a<=45){e.dimType='horizontal';r=a}else if(a<135){e.dimType='vertical';r=a-90}else{e.dimType='horizontal';r=a-180}
+  if(Math.abs(r)<1e-7)delete e.rot;else e.rot=r*Math.PI/180;
+}
+// ¿Los dos puntos medidos están en la misma dirección que la línea de cota?
+function ftDimIsAligned(e){const u=ftDimDir(e);return Math.abs((e.p2.x-e.p1.x)*u.y-(e.p2.y-e.p1.y)*u.x)<1e-6}
+// Cota girada: se calcula derecha (alrededor de p1) y el resultado se gira de vuelta
+function ftRotDimGeom(e){
+  const{p1,p2,p3}=e;if(!p1||!p2||!p3)return null;
+  const c=Math.cos(e.rot),s=Math.sin(e.rot);
+  const turn=(p,sn)=>{const dx=p.x-p1.x,dy=p.y-p1.y;return{x:p1.x+dx*c-dy*sn,y:p1.y+dx*sn+dy*c}};
+  const g=ftDimGeomBase({...e,rot:0,p2:turn(p2,-s),p3:turn(p3,-s)});
+  if(!g)return g;
+  const P=p=>p?turn(p,s):p,L=l=>l?{p1:P(l.p1),p2:P(l.p2)}:l;
+  g.dimLine=L(g.dimLine);g.extLines=(g.extLines||[]).map(L);g.textPos=P(g.textPos);g.leaderLine=L(g.leaderLine);
+  g.angle=(g.angle||0)+e.rot;return g;
+}
+function computeDimensionGeom(e){return e&&e.rot&&(e.dimType==='horizontal'||e.dimType==='vertical')?ftRotDimGeom(e):ftDimGeomBase(e)}
+function ftDimGeomBase(e){if(!e||!e.dimType)return null;const prec=getPrecision();const unit=getUnitLabel();const suffix=unit?' '+unit:'';if(e.dimType==='aligned'){const{p1,p2,p3}=e;if(!p1||!p2||!p3)return null;const dx=p2.x-p1.x,dy=p2.y-p1.y;const len=Math.hypot(dx,dy);if(len<1e-10)return null;const ux=dx/len,uy=dy/len;const v13x=p3.x-p1.x,v13y=p3.y-p1.y;const proj=v13x*ux+v13y*uy;const footX=p1.x+proj*ux,footY=p1.y+proj*uy;const perpDist=Math.hypot(p3.x-footX,p3.y-footY);const nx=perpDist>1e-9?(p3.x-footX)/perpDist:0,ny=perpDist>1e-9?(p3.y-footY)/perpDist:0;const dp1={x:p1.x+nx*perpDist,y:p1.y+ny*perpDist};const dp2={x:p2.x+nx*perpDist,y:p2.y+ny*perpDist};const lenConverted=fromBaseUnit(len);const gapStart1={x:p1.x+nx*DIM_EXT_GAP,y:p1.y+ny*DIM_EXT_GAP};const gapStart2={x:p2.x+nx*DIM_EXT_GAP,y:p2.y+ny*DIM_EXT_GAP};const overEnd1={x:dp1.x+nx*DIM_EXT_OVERSHOOT,y:dp1.y+ny*DIM_EXT_OVERSHOOT};const overEnd2={x:dp2.x+nx*DIM_EXT_OVERSHOOT,y:dp2.y+ny*DIM_EXT_OVERSHOOT};const alignedText=lenConverted.toFixed(prec)+suffix;const alignedTH=e.textHeight||dimSettings.textHeight;const alignedAS=e.arrowSize||dimSettings.arrowSize;const alignedFit=adjustDimTextForFit({p1:dp1,p2:dp2},alignedText,alignedTH,alignedAS);return{dimLine:{p1:dp1,p2:dp2},extLines:[{p1:gapStart1,p2:overEnd1},{p1:gapStart2,p2:overEnd2}],textPos:alignedFit.textPos,leaderLine:alignedFit.leaderLine,text:alignedText,value:lenConverted,angle:Math.atan2(dy,dx),textHeight:alignedTH,arrowSize:alignedAS}}if(e.dimType==='horizontal'){const{p1,p2,p3}=e;if(!p1||!p2||!p3)return null;const dp1={x:p1.x,y:p3.y},dp2={x:p2.x,y:p3.y};const value=Math.abs(p2.x-p1.x);const valueConverted=fromBaseUnit(value);const sign=Math.sign(p3.y-p1.y)||1;const gapStart1={x:p1.x,y:p1.y+sign*DIM_EXT_GAP};const gapStart2={x:p2.x,y:p2.y+sign*DIM_EXT_GAP};const overEnd1={x:dp1.x,y:dp1.y+sign*DIM_EXT_OVERSHOOT};const overEnd2={x:dp2.x,y:dp2.y+sign*DIM_EXT_OVERSHOOT};const horizText=valueConverted.toFixed(prec)+suffix;const horizTH=e.textHeight||dimSettings.textHeight;const horizAS=e.arrowSize||dimSettings.arrowSize;const horizFit=adjustDimTextForFit({p1:dp1,p2:dp2},horizText,horizTH,horizAS);return{dimLine:{p1:dp1,p2:dp2},extLines:[{p1:gapStart1,p2:overEnd1},{p1:gapStart2,p2:overEnd2}],textPos:horizFit.textPos,leaderLine:horizFit.leaderLine,text:horizText,value:valueConverted,angle:0,textHeight:horizTH,arrowSize:horizAS}}if(e.dimType==='vertical'){const{p1,p2,p3}=e;if(!p1||!p2||!p3)return null;const dp1={x:p3.x,y:p1.y},dp2={x:p3.x,y:p2.y};const value=Math.abs(p2.y-p1.y);const valueConverted=fromBaseUnit(value);const sign=Math.sign(p3.x-p1.x)||1;const gapStart1={x:p1.x+sign*DIM_EXT_GAP,y:p1.y};const gapStart2={x:p2.x+sign*DIM_EXT_GAP,y:p2.y};const overEnd1={x:dp1.x+sign*DIM_EXT_OVERSHOOT,y:dp1.y};const overEnd2={x:dp2.x+sign*DIM_EXT_OVERSHOOT,y:dp2.y};const vertText=valueConverted.toFixed(prec)+suffix;const vertTH=e.textHeight||dimSettings.textHeight;const vertAS=e.arrowSize||dimSettings.arrowSize;const vertFit=adjustDimTextForFit({p1:dp1,p2:dp2},vertText,vertTH,vertAS);return{dimLine:{p1:dp1,p2:dp2},extLines:[{p1:gapStart1,p2:overEnd1},{p1:gapStart2,p2:overEnd2}],textPos:vertFit.textPos,leaderLine:vertFit.leaderLine,text:vertText,value:valueConverted,angle:-Math.PI/2,textHeight:vertTH,arrowSize:vertAS}}if(e.dimType==='radial'){const{p1,p2:p2Orig,radius,center}=e;if(!p1||!p2Orig||!radius||!center)return null;const radiusConverted=fromBaseUnit(radius);const radTH=e.textHeight||dimSettings.textHeight;const radAS=e.arrowSize||dimSettings.arrowSize;const radTextTmp='R '+radiusConverted.toFixed(prec)+suffix;
   // El círculo es "muy chico" para esta cota cuando su radio es menor que el ancho del propio
   // texto — ahí el texto no puede ir adentro sin superponerse con el borde, así que se empuja
   // hacia afuera (en la dirección real de salida, centro -> punto de contacto). Si el círculo es
@@ -8469,16 +8502,19 @@ const CadImport=(function(){
       if(t!==0&&t!==1)return false;
       if(g(13)===undefined||g(14)===undefined||g(10)===undefined)return false;
       const p1=tp(M,g(13),g(23)||0),p2=tp(M,g(14),g(24)||0),p3=tp(M,g(10),g(20)||0);
-      let dimType='aligned';
+      let dimType='aligned',rot;
       if(t===0){
         const ang=normA((g(50)||0)*Math.PI/180+Math.atan2(M[1],M[0]));
         const deg=ang*180/Math.PI;
         if(Math.abs(deg)<0.01||Math.abs(deg-180)<0.01||Math.abs(deg-360)<0.01)dimType='horizontal';
         else if(Math.abs(deg-90)<0.01||Math.abs(deg-270)<0.01)dimType='vertical';
+        else{const a=(g(50)||0)*Math.PI/180,c=Math.cos(a),s=Math.sin(a),v={x:M[0]*c+M[2]*s,y:M[1]*c+M[3]*s};
+          const l=Math.hypot(v.x,v.y)||1,dx=p2.x-p1.x,dy=p2.y-p1.y;
+          if(Math.abs(dx*v.y-dy*v.x)/l>1e-4*Math.max(1e-9,Math.hypot(dx,dy))){const d={};ftDimSetDir(d,v);dimType=d.dimType;rot=d.rot}}
       }
       const sc=Math.sqrt(Math.abs(det(M)));
       const th=(textH||2.5)*sc;
-      const e={type:'dimension',dimType,p1,p2,p3,textHeight:th,arrowSize:th};
+      const e={type:'dimension',dimType,p1,p2,p3,textHeight:th,arrowSize:th};if(rot)e.rot=rot;
       emit(e,cm,ctx);
       // Las cotas de FácilTrazo necesitan un color concreto (no "por capa")
       if(e.color==='bylayer')e.color=layerColor[e.layerId]||'#00d0ff';
@@ -10370,7 +10406,7 @@ class DimContinueTool{
     if(b.dimType==='aligned'&&l2>0){const t=((b.p3.x-b.p1.x)*dx+(b.p3.y-b.p1.y)*dy)/l2;off={x:b.p3.x-(b.p1.x+t*dx),y:b.p3.y-(b.p1.y+t*dy)}}
     const p3=b.dimType==='aligned'?{x:p.x+off.x,y:p.y+off.y}:{...b.p3};
     const nd={...baseProps(app.d),color:b.color,type:'dimension',dimType:b.dimType,p1:{...b.p2},p2:{...p},p3};
-    if(b.textHeight!==undefined)nd.textHeight=b.textHeight;if(b.arrowSize!==undefined)nd.arrowSize=b.arrowSize;
+    if(b.rot)nd.rot=b.rot;if(b.textHeight!==undefined)nd.textHeight=b.textHeight;if(b.arrowSize!==undefined)nd.arrowSize=b.arrowSize;
     nd.layerId=b.layerId;
     return nd;
   }
@@ -13479,7 +13515,7 @@ function isoDimLayout(e,g){
   const t=e.dimType;
   if(t==='horizontal'||t==='vertical'||t==='aligned'){
     const{p1,p2,p3}=e;if(!p1||!p2||!p3)return null;
-    let u=t==='horizontal'?_V(1,0):t==='vertical'?_V(0,1):_nrm(_sub(p2,p1));
+    let u=e.rot&&t!=='aligned'?ftDimDir(e):t==='horizontal'?_V(1,0):t==='vertical'?_V(0,1):_nrm(_sub(p2,p1));
     if(_len(_sub(p2,p1))<1e-12&&t==='aligned')return null;
     const n=_V(-u.y,u.x);
     const d1=_add(p1,_mul(n,_dot(_sub(p3,p1),n))),d2=_add(p2,_mul(n,_dot(_sub(p3,p2),n)));
@@ -17215,14 +17251,14 @@ function build(d,ver,pl){
     const T=L.texts[0];const tmid=T?{x:T.at.x,y:T.at.y}:(g.textPos||e.p3||e.center);
     if(t==='horizontal'||t==='vertical'||t==='aligned'){
       const{p1,p2,p3}=e;
-      const u=t==='horizontal'?{x:1,y:0}:t==='vertical'?{x:0,y:1}:(()=>{const dx=p2.x-p1.x,dy=p2.y-p1.y,l=Math.hypot(dx,dy)||1;return{x:dx/l,y:dy/l}})();
+      const u=e.rot&&t!=='aligned'?ftDimDir(e):t==='horizontal'?{x:1,y:0}:t==='vertical'?{x:0,y:1}:(()=>{const dx=p2.x-p1.x,dy=p2.y-p1.y,l=Math.hypot(dx,dy)||1;return{x:dx/l,y:dy/l}})();
       const n={x:-u.y,y:u.x};const k=(p3.x-p2.x)*n.x+(p3.y-p2.y)*n.y;let d2={x:p2.x+n.x*k,y:p2.y+n.y*k};
       const iso=typeof isIsoDim==='function'&&isIsoDim(e)?isoDimFrame(e):null;if(iso)d2=iso.d2;
       w.pt(10,d2);w.pt(11,tmid);w.g(70,(t==='aligned'&&!iso?1:0)|32|128);w.g(71,5);
       w.g(42,Math.abs((p2.x-p1.x)*u.x+(p2.y-p1.y)*u.y));w.g(1,enc(dimTexts(T?T.str:g.text)));
       w.g(100,'AcDbAlignedDimension');w.pt(13,p1);w.pt(14,p2);
       if(iso){const a50=Math.atan2(u.y,u.x)*180/Math.PI,aExt=Math.atan2(iso.o.y,iso.o.x)*180/Math.PI;w.g(50,(a50+360)%360);w.g(52,((aExt-a50)%180+180)%180);w.g(100,'AcDbRotatedDimension')}
-      else if(t!=='aligned'){w.g(50,t==='vertical'?90:0);w.g(100,'AcDbRotatedDimension')}
+      else if(t!=='aligned'){w.g(50,e.rot?(((t==='vertical'?90:0)+e.rot*180/Math.PI)%360+360)%360:t==='vertical'?90:0);w.g(100,'AcDbRotatedDimension')}
     }else{
       const c=e.center,r=e.radius;const q=e.p2&&t!=='radiusline'?e.p2:(e.p1||{x:c.x+r,y:c.y});
       let dx=q.x-c.x,dy=q.y-c.y,l=Math.hypot(dx,dy);if(l<1e-9){dx=1;dy=0;l=1}
@@ -18238,7 +18274,7 @@ applyG(false);
 // =====================================================================================
 (function(){
 'use strict';
-const BUILD='1.9.1-rev25';
+const BUILD='1.9.1-rev26';
 const KEY='faciltrazo_mcp_v1';
 const PORTS=[47821,47822,47823,47824,47825];
 let S={on:false,token:'',port:0};
@@ -20026,8 +20062,7 @@ function isoAxisDefault(p1,p2,p3){
 // Convierte una cota lineal: mode = 'no' | 'auto' | 30 | 90 | 150. Devuelve la copia nueva o null.
 function isoConvertDim(e,mode){
   const a=cloneEnt(e);if(!a.p1||!a.p2||!a.p3)return null;
-  if(a.dimType==='horizontal'){if(Math.abs(a.p2.y-a.p1.y)>1e-6)return null;a.dimType='aligned'}
-  else if(a.dimType==='vertical'){if(Math.abs(a.p2.x-a.p1.x)>1e-6)return null;a.dimType='aligned'}
+  if(a.dimType==='horizontal'||a.dimType==='vertical'){if(!ftDimIsAligned(a))return null;a.dimType='aligned';delete a.rot}
   if(a.dimType!=='aligned'||_len(_sub(a.p2,a.p1))<1e-9)return null;
   const m=_mul(_add(a.p1,a.p2),0.5),u=_nrm(_sub(a.p2,a.p1)),n=_V(-u.y,u.x);
   const h=_dot(_sub(a.p3,a.p1),n);   // separación perpendicular: se conserva
@@ -20040,8 +20075,7 @@ function isoConvertDim(e,mode){
 function isoDimConvertible(e){
   if(!e||e.type!=='dimension'||!e.p1||!e.p2||!e.p3)return false;
   if(e.dimType==='aligned')return true;
-  if(e.dimType==='horizontal')return Math.abs(e.p2.y-e.p1.y)<1e-6;
-  if(e.dimType==='vertical')return Math.abs(e.p2.x-e.p1.x)<1e-6;
+  if(e.dimType==='horizontal'||e.dimType==='vertical')return ftDimIsAligned(e);
   return false;
 }
 
@@ -20719,6 +20753,461 @@ updateDyn=function(){
   if(!cur)return;
   const r=isoRadiusThrough(circleSettings.isoFace,t.center,cur);
   dyn.len.value=fromBaseUnit(circleSettings.isoDia?r*2:r).toFixed(getPrecision());
+};
+</script>
+<script id="ft-rev26">
+// =====================================================================================
+// ========== FácilTrazo rev26: MOVER EL NÚMERO DE UNA COTA ==========
+// =====================================================================================
+// El número de una cota seleccionada tiene su propio cuadrito (amarillo). Al arrastrarlo se guarda
+// `textAt` (el mismo dato que ya usan el archivo, el DWG y el conector). Al soltarlo cerca de su
+// lugar original vuelve a la posición automática. Si después se mueve la línea de cota o los puntos
+// medidos, el número la acompaña.
+function dimTextMovable(e){
+  return !!e&&e.type==='dimension'&&(['horizontal','vertical','aligned','radiusline','angular'].includes(e.dimType)||(e.dimType==='radial'&&!e.p2));
+}
+// En las cotas de diámetro (y radio antiguo) el número ya se movía con el punto p2
+function dimTextByP2(e){return !!e&&e.type==='dimension'&&(e.dimType==='diameter'||e.dimType==='radial')&&!!e.p2}
+// Diámetro: el número tiene su cuadrito igual que las demás cotas (se guarda en p2, como siempre)
+function dimTextDiam(e){return !!e&&e.type==='dimension'&&e.dimType==='diameter'&&!!e.center&&e.radius>0}
+function dimHasTextAt(e){return !!(e&&e.textAt&&isFinite(e.textAt.x)&&isFinite(e.textAt.y))}
+// `numMovido` marca los números puestos con el cuadrito: solo esos usan el dibujo nuevo, así las cotas
+// que ya traían `textAt` (R isométrico, conector, dibujos anteriores) se ven igual que antes
+function dimNumMoved(e){return dimHasTextAt(e)&&!!e.numMovido}
+function dimTextUp(T){return T.ey?T.ey:_V(-Math.sin(T.ang),Math.cos(T.ang))}
+// Línea guía desde q hasta el lado más cercano de la caja del número (también con el texto inclinado
+// del isométrico), sin cruzar las letras. Devuelve el tramo o null si el número está pegado a la línea.
+function dimGuide(T,at,q){
+  const th=T.h,gap=th*ISO.gap,hw=isoTextWidth(T.str,th)/2+gap;
+  const ex=T.ex||_V(Math.cos(T.ang),Math.sin(T.ang)),ey=dimTextUp(T),det=_cross(ex,ey),qv=_sub(q,at);
+  const lx=_cross(qv,ey)/det,ly=_cross(ex,qv)/det,nx=lx/hw,ny=(ly-th/2)/(th/2+gap);
+  if(Math.abs(nx)<=1.001&&Math.abs(ny)<=1.001)return null;
+  const tl=Math.abs(nx)>=Math.abs(ny)?{x:lx<0?-hw:hw,y:th/2}:{x:0,y:ly<th/2?-gap:th+gap};
+  if(Math.hypot(tl.x-lx,tl.y-ly)<=th*0.3)return null;
+  return[q,_add(at,_add(_mul(ex,tl.x),_mul(ey,tl.y)))];
+}
+
+// ---------- Geometría: número fijo en radios y ángulos, y prolongación de la línea bajo el número ----------
+const _isoDimLayoutTA=isoDimLayout;
+isoDimLayout=function(e,g){
+  if(!dimNumMoved(e)||!dimTextMovable(e))return _isoDimLayoutTA(e,g);
+  const t=e.dimType,at=_V(e.textAt.x,e.textAt.y);
+  const auto=_isoDimLayoutTA({...e,textAt:undefined},g);
+  if(!auto||!auto.texts[0])return _isoDimLayoutTA(e,g);
+  const T=auto.texts[0],th=T.h,n=_V(-Math.sin(T.ang),Math.cos(T.ang)),tw=isoTextWidth(T.str,th);
+  const level=Math.abs(_dot(_sub(at,_V(T.at.x,T.at.y)),n))<th*0.05;   // a la altura normal sobre la línea
+  if(t==='horizontal'||t==='vertical'||t==='aligned'){
+    if(!level){
+      if(!isIsoDim(e)||e.textLeader===false)return _isoDimLayoutTA(e,g);
+      const L=_isoDimLayoutTA({...e,textLeader:false},g),F=dimTextFrame(e);
+      if(L&&F&&F.a){
+        const ab=_sub(F.b,F.a),q=_add(F.a,_mul(ab,Math.max(0,Math.min(1,_dot(_sub(at,F.a),ab)/_dot(ab,ab))))),seg=dimGuide(L.texts[0],at,q);
+        if(seg)L.lines.push(seg);
+      }
+      return L;
+    }
+    // Deslizado a lo largo de la línea: sin línea guía; si se sale de las líneas de proyección, la línea sigue bajo él
+    const L=_isoDimLayoutTA({...e,textLeader:false},g),F=dimTextFrame(e);
+    if(L&&F&&F.a){
+      const ab=_sub(F.b,F.a),len=_len(ab),ev=_mul(ab,1/len),s=_dot(_sub(at,F.a),ev);
+      if(s-tw/2<-1e-6)L.lines.push([F.a,_add(F.a,_mul(ev,s-tw/2))]);
+      if(s+tw/2>len+1e-6)L.lines.push([F.b,_add(F.a,_mul(ev,s+tw/2))]);
+    }
+    return L;
+  }
+  // Radio y ángulo
+  const L=auto;L.texts[0]={...T,at};
+  if(t!=='angular'&&e.center){
+    const dir=_nrm(_sub(e.p1||_add(e.center,_V(e.radius,0)),e.center)),s=_dot(_sub(at,e.center),dir);
+    if(level&&s>0){
+      if(s+tw/2>e.radius+1e-6)L.lines.push([_add(e.center,_mul(dir,e.radius)),_add(e.center,_mul(dir,s+tw/2))]);
+      return L;
+    }
+  }
+  if(e.textLeader!==false){
+    let q=null;
+    if(t==='angular'&&L.arc){
+      const A=L.arc,TAU=Math.PI*2,sg=A.delta>=0?1:-1;
+      let d=(((Math.atan2(at.y-A.c.y,at.x-A.c.x)-A.a0)*sg)%TAU+TAU)%TAU;const span=Math.abs(A.delta);
+      if(d>span)d=d-span<TAU-d?span:0;
+      const a=A.a0+sg*d;q=_V(A.c.x+Math.cos(a)*A.r,A.c.y+Math.sin(a)*A.r);
+    }else if(e.center){
+      const dir=_nrm(_sub(e.p1||_add(e.center,_V(e.radius,0)),e.center));
+      q=_add(e.center,_mul(dir,Math.max(0,Math.min(e.radius,_dot(_sub(at,e.center),dir)))));
+    }
+    const seg=q&&dimGuide(T,at,q);if(seg)L.lines.push(seg);
+  }
+  return L;
+};
+// La selección con clic usa el lugar real del número
+const _computeDimensionGeomTA=computeDimensionGeom;
+computeDimensionGeom=function(e){
+  const g=_computeDimensionGeomTA(e);
+  if(g&&dimNumMoved(e)&&dimTextMovable(e)){
+    const L=isoDimLayout(e,g),T=L&&L.texts[0];
+    if(T){const up=dimTextUp(T);g.textPos={x:T.at.x+up.x*T.h/2,y:T.at.y+up.y*T.h/2};g.leaderLine=null;g.hookLine=null}
+  }
+  return g;
+};
+
+// ---------- El cuadrito del número ----------
+function dimTextGrip(e){
+  const g=computeDimensionGeom(e);if(!g)return null;
+  const L=isoDimLayout(e,g),T=L&&L.texts[0];if(!T)return null;
+  const up=dimTextUp(T);
+  return{x:T.at.x+up.x*T.h/2,y:T.at.y+up.y*T.h/2,kind:'dimtext',ref:['dimText'],at0:{x:T.at.x,y:T.at.y}};
+}
+const _getHandlesTA=getHandles;
+getHandles=function(e){
+  const h=_getHandlesTA(e);
+  if(dimTextMovable(e)||dimTextDiam(e)){const q=dimTextGrip(e);if(q)h.push(q)}
+  return h;
+};
+// El número no es un punto de referencia (snap)
+const _getSnapPointsTA=getSnapPoints;
+getSnapPoints=function(e){
+  if(e&&e.type==='dimension')return _getHandlesTA(e).map(h=>({x:h.x,y:h.y,type:h.kind}));
+  return _getSnapPointsTA(e);
+};
+const _drawEntityTA=drawEntity;
+drawEntity=function(x,e,sel,ghost=false){
+  _drawEntityTA(x,e,sel,ghost);
+  if(!sel||ghost||!e||e.type!=='dimension')return;
+  for(const h of getHandles(e)){
+    if(!(h.kind==='dimtext'||(e.dimType==='radial'&&dimTextByP2(e)&&h.ref&&h.ref[0]==='p2')))continue;
+    const s=worldToScreen(h.x,h.y);
+    x.save();x.setLineDash([]);x.fillStyle='#ffcc00';x.fillRect(s.x-4.5,s.y-4.5,9,9);x.strokeStyle='#222';x.lineWidth=1;x.strokeRect(s.x-4.5,s.y-4.5,9,9);x.restore();
+  }
+};
+
+// Diámetro: se calcula el punto p2 que deja el número donde está el cursor
+function dimDiamTextDrag(e,newAt){
+  const base={...e};delete base.p2;
+  const at=d=>{const g=computeDimensionGeom(d),L=g&&isoDimLayout(d,g);return L&&L.texts[0]};
+  const T=at(base);if(!T)return;
+  let p2=null;
+  if(Math.hypot(newAt.x-T.at.x,newAt.y-T.at.y)>=T.h*0.8){
+    // El número va sobre la línea que pasa por el centro, separado de ella por 'gap'
+    const c=e.center,v=_sub(newAt,c),L=Math.hypot(v.x,v.y),gap=T.h*ISO.gap;
+    const d=Math.sqrt(Math.max(L*L-gap*gap,1e-12)),a0=Math.atan2(v.y,v.x),da=Math.atan2(gap,d);
+    let bd=Infinity;
+    for(const a of[a0-da,a0+da]){
+      const q=_V(c.x+d*Math.cos(a),c.y+d*Math.sin(a)),t=at({...base,p2:q});if(!t)continue;
+      const err=Math.hypot(newAt.x-t.at.x,newAt.y-t.at.y);
+      if(err<bd){bd=err;p2={x:q.x,y:q.y}}
+    }
+  }
+  if(p2)e.p2=p2;else delete e.p2;
+  // En una hoja, la cota ligada recuerda también dónde quedó el número
+  const A=e.assoc;
+  if(A&&A.pts&&A.last&&inLayout()){
+    const vp=app.d.entities.find(x=>x.id===A.vp&&x.type==='viewport');
+    if(p2&&vp){A.pts.p2={m:paperToModel(vp,p2)};A.last.p2={x:p2.x,y:p2.y}}else{delete A.pts.p2;delete A.last.p2}
+  }
+}
+// Lugar nuevo del número (newAt = centro de su línea base)
+function dimTextDrag(e,newAt){
+  if(e.dimType==='diameter'){dimDiamTextDrag(e,newAt);return}
+  const auto={...e};delete auto.textAt;
+  const g=computeDimensionGeom(auto),L=g&&isoDimLayout(auto,g),T=L&&L.texts[0];
+  if(!T){e.textAt={x:newAt.x,y:newAt.y};e.numMovido=true;return}
+  const th=T.h,u=_V(Math.cos(T.ang),Math.sin(T.ang)),n=_V(-u.y,u.x),d=_sub(newAt,T.at);
+  const ds=_dot(d,u);let dt=_dot(d,n);
+  if(e.dimType==='angular'){if(Math.hypot(ds,dt)<th*0.8){delete e.textAt;delete e.numMovido;return}}
+  else{
+    if(Math.abs(dt)<th*0.8)dt=0;                                  // se acomoda a la altura normal
+    if(!dt&&Math.abs(ds)<th*0.8){delete e.textAt;delete e.numMovido;return}          // cerca de su lugar: automático
+  }
+  e.textAt={x:T.at.x+u.x*ds+n.x*dt,y:T.at.y+u.y*ds+n.y*dt};e.numMovido=true;
+}
+const _selDownTA=SelectTool.prototype.onMouseDown;
+SelectTool.prototype.onMouseDown=function(w,s,c){
+  this.textDragging=false;
+  if(c.d.selection.length>0&&!c.shiftKey){
+    let best=null,bd=10,other=Infinity;
+    for(const id of c.d.selection){
+      const e=entById(c.d,id);if(!e)continue;
+      const l=c.d.layers.find(x=>x.id===e.layerId);if(l&&l.locked)continue;
+      for(const h of getHandles(e)){
+        if(!h.ref)continue;
+        const sp=worldToScreen(h.x,h.y),d=Math.hypot(s.x-sp.x,s.y-sp.y);
+        if(h.kind==='dimtext'){if(d<bd){bd=d;best={e,h}}}
+        else if(d<other)other=d;
+      }
+    }
+    // Gana la manija que está más cerca del cursor
+    if(best&&bd<=other+0.5){
+      this.shiftHeld=false;this.hitVertex={entityId:best.e.id,handle:best.h};
+      this.dragBefore=JSON.parse(JSON.stringify(best.e));this.dragStart={x:s.x,y:s.y,w:{...w}};
+      return;
+    }
+  }
+  return _selDownTA.call(this,w,s,c);
+};
+const _selMoveTA=SelectTool.prototype.onMouseMove;
+SelectTool.prototype.onMouseMove=function(w,s,c){
+  const h=this.hitVertex&&this.hitVertex.handle;
+  if(!h||!h.ref||h.ref[0]!=='dimText'||!this.dragStart)return _selMoveTA.call(this,w,s,c);
+  const e=c.d.entities.find(x=>x.id===this.hitVertex.entityId);if(!e)return;
+  if(!this.textDragging&&Math.hypot(s.x-this.dragStart.x,s.y-this.dragStart.y)<=3)return;
+  this.textDragging=true;
+  dimTextDrag(e,{x:h.at0.x+w.x-this.dragStart.w.x,y:h.at0.y+w.y-this.dragStart.w.y});
+  c.onChange();
+};
+// Deshacer / rehacer: si en ese estado el número era automático, se quita la posición fija
+function dimSyncTextKey(cmd,snap){
+  const e=cmd.d.entities.find(x=>x.id===cmd.entityId);
+  if(e&&e.type==='dimension'&&snap&&!('textAt'in snap))delete e.textAt;
+  if(e&&e.type==='dimension'&&snap&&!('numMovido'in snap))delete e.numMovido;
+  if(e&&e.type==='dimension'&&e.dimType==='diameter'&&snap&&!('p2'in snap))delete e.p2;
+}
+const _hdExecTA=HandleDragCommand.prototype.execute,_hdRevTA=HandleDragCommand.prototype.reverse;
+HandleDragCommand.prototype.execute=function(){dimSyncTextKey(this,this.after);_hdExecTA.call(this)};
+HandleDragCommand.prototype.reverse=function(){dimSyncTextKey(this,this.before);_hdRevTA.call(this)};
+
+// ---------- El número movido acompaña a la línea de cota ----------
+// Marco de referencia de la línea de cota: origen y ejes
+function dimTextFrame(e){
+  const t=e.dimType;
+  if(t==='horizontal'||t==='vertical'||t==='aligned'){
+    if(!e.p1||!e.p2||!e.p3)return null;
+    let a,b;
+    if(isIsoDim(e)){const F=isoDimFrame(e);if(!F)return null;a=F.d1;b=F.d2}
+    else{
+      const u0=e.rot&&t!=='aligned'?ftDimDir(e):t==='horizontal'?_V(1,0):t==='vertical'?_V(0,1):_nrm(_sub(e.p2,e.p1)),n0=_V(-u0.y,u0.x);
+      a=_add(e.p1,_mul(n0,_dot(_sub(e.p3,e.p1),n0)));b=_add(e.p2,_mul(n0,_dot(_sub(e.p3,e.p2),n0)));
+    }
+    if(_len(_sub(b,a))<1e-9)return null;
+    const ang=readable(_sub(b,a)),u=_V(Math.cos(ang),Math.sin(ang));
+    return{o:_mul(_add(a,b),0.5),u,n:_V(-u.y,u.x),flip:true,a,b};
+  }
+  if((t==='radiusline'||t==='radial')&&e.center&&e.radius>0){
+    const dir=_nrm(_sub(e.p1||_add(e.center,_V(e.radius,0)),e.center));
+    return{o:_add(e.center,_mul(dir,e.radius/2)),u:dir,n:_V(-dir.y,dir.x),flip:false};
+  }
+  if(t==='angular'){
+    const g=_computeDimensionGeomTA(e),A=g&&g.arc;if(!A)return null;
+    const am=A.startAngle+A.delta/2,dir=_V(Math.cos(am),Math.sin(am));
+    return{o:_add(A.center,_mul(dir,A.radius)),u:_V(-dir.y,dir.x),n:dir,flip:false};
+  }
+  return null;
+}
+// f0 y t0: marco y posición del número ANTES del cambio. No hace nada si el cambio ya movió el número.
+function dimTextFollow(e,f0,t0){
+  if(!f0||!t0||!dimHasTextAt(e))return false;
+  if(Math.abs(e.textAt.x-t0.x)>1e-9||Math.abs(e.textAt.y-t0.y)>1e-9)return false;
+  const f1=dimTextFrame(e);if(!f1)return false;
+  const d=_sub(t0,f0.o),s=_dot(d,f0.u),h=_dot(d,f0.n);
+  let u=f1.u,n=f1.n;
+  if(f1.flip&&_dot(u,f0.u)<0){u=_mul(u,-1);n=_mul(n,-1)}
+  const x=f1.o.x+u.x*s+n.x*h,y=f1.o.y+u.y*s+n.y*h;
+  if(Math.abs(x-t0.x)<1e-9&&Math.abs(y-t0.y)<1e-9)return false;
+  e.textAt={x,y};return true;
+}
+function dimTextSnapshot(e){
+  if(!e||e.type!=='dimension'||!dimHasTextAt(e))return null;
+  const f=dimTextFrame(e);return f?{f,t:{x:e.textAt.x,y:e.textAt.y}}:null;
+}
+const _applyHandleDragTA=applyHandleDrag;
+applyHandleDrag=function(e,ref,p){
+  if(ref[0]==='dimText'){const T=dimTextGrip(e);if(T)dimTextDrag(e,{x:T.at0.x+p.x-T.x,y:T.at0.y+p.y-T.y});return}
+  const S=['p1','p2','p3','p4','center'].includes(ref[0])?dimTextSnapshot(e):null;
+  _applyHandleDragTA(e,ref,p);
+  if(S)dimTextFollow(e,S.f,S.t);
+};
+const _stretchEntityCloneTA=stretchEntityClone;
+stretchEntityClone=function(e,rect,dx,dy){
+  const S=dimTextSnapshot(e);
+  const g=_stretchEntityCloneTA(e,rect,dx,dy);
+  if(g&&S)dimTextFollow(g,S.f,S.t);
+  return g;
+};
+const _isoConvertDimTA=isoConvertDim;
+isoConvertDim=function(e,mode){
+  const S=dimTextSnapshot(e);
+  const a=_isoConvertDimTA(e,mode);
+  if(a&&S)dimTextFollow(a,S.f,S.t);
+  return a;
+};
+const _syncAssocDimsTA=syncAssocDims;
+syncAssocDims=function(){
+  const list=[];
+  if(inLayout()&&!_inVP&&app.d._ms)for(const e of app.d.entities){if(e.type==='dimension'&&e.assoc){const S=dimTextSnapshot(e);if(S)list.push([e,S])}}
+  const r=_syncAssocDimsTA();
+  let changed=false;
+  for(const[e,S]of list)if(dimTextFollow(e,S.f,S.t))changed=true;
+  if(changed){invalidateEntitiesCache();scheduleAutosave()}
+  return r;
+};
+const _modExecTA=ModifyEntityCommand.prototype.execute,_modRevTA=ModifyEntityCommand.prototype.reverse;
+ModifyEntityCommand.prototype.execute=function(){
+  const e=this.d.entities.find(x=>x.id===this.id);
+  const geom=!!this.np&&!('textAt'in this.np)&&['p1','p2','p3','p4','center','obl','dimType','radius'].some(k=>k in this.np);
+  const S=geom?dimTextSnapshot(e):null,old=S?e.textAt:null;
+  _modExecTA.call(this);
+  this.taOld=S&&dimTextFollow(e,S.f,S.t)?old:null;
+};
+ModifyEntityCommand.prototype.reverse=function(){
+  _modRevTA.call(this);
+  if(this.taOld){const e=this.d.entities.find(x=>x.id===this.id);if(e)e.textAt=this.taOld}
+};
+
+// ---------- Panel de propiedades ----------
+const _renderPropsPanelTA=renderPropsPanel;
+renderPropsPanel=function(){
+  _renderPropsPanelTA();
+  if(!app.d)return;
+  const sel=()=>(app.d.selection||[]).map(id=>entById(app.d,id)).filter(e=>dimTextMovable(e)||(!!e&&e.type==='dimension'&&e.dimType==='diameter'));
+  const dims=sel();if(!dims.length)return;
+  const p=document.getElementById('props-panel');if(!p)return;
+  const isMoved=e=>e.dimType==='diameter'?!!e.p2:['horizontal','vertical','aligned'].includes(e.dimType)?dimHasTextAt(e):dimNumMoved(e);
+  const moved=dims.filter(isMoved),guided=moved.filter(e=>e.dimType!=='diameter');
+  const state=!moved.length?'Automática':moved.length===dims.length?'Movida':'Mixto';
+  const html=`<div class="props-section ft-dimtext-section"><div class="props-section-title">Número de la cota${dims.length>1?' ('+dims.length+' cotas)':''}</div>
+    <div class="props"><div><label>Posición:</label><span id="ft-dimtext-state">${state}</span></div></div>
+    <div class="tool-opts"><button class="topt-btn" id="ft-dimtext-reset"${moved.length?'':' disabled style="opacity:.45"'} title="Devuelve el número a su lugar automático">Volver al centro</button></div>
+    ${guided.length?`<label style="display:flex;align-items:center;gap:6px;font-size:12px;margin-top:4px"><input type="checkbox" id="ft-dimtext-guide"${guided.every(e=>e.textLeader!==false)?' checked':''}> Línea guía hasta el número</label>`:''}
+    <div style="font-size:11px;opacity:.7;margin-top:4px">Arrastre el cuadrito amarillo para mover el número.</div></div>`;
+  const iso=document.getElementById('ft-iso-dim'),ref=(iso&&iso.closest('.props-section'))||p.querySelector('.ft-arrow-section');
+  if(ref)ref.insertAdjacentHTML('beforebegin',html);else p.insertAdjacentHTML('beforeend',html);
+  const apply=(change,msg)=>{
+    const before=[],after=[];
+    for(const e of sel()){
+      const a=cloneEnt(e);change(a);
+      if(JSON.stringify(a)!==JSON.stringify(e)){before.push(cloneEnt(e));after.push(a)}
+    }
+    if(after.length){executeCommand(app.d,new GenericEditCommand(app.d,before,after));onChange();setMsg(msg)}
+  };
+  const b=document.getElementById('ft-dimtext-reset');
+  if(b)b.onclick=()=>apply(a=>{
+    delete a.textAt;delete a.textLeader;delete a.numMovido;
+    if(a.dimType==='diameter'){delete a.p2;if(a.assoc){if(a.assoc.pts)delete a.assoc.pts.p2;if(a.assoc.last)delete a.assoc.last.p2}}
+  },'Número de la cota en su lugar automático');
+  const g=document.getElementById('ft-dimtext-guide');
+  if(g)g.onchange=()=>{const on=g.checked;apply(a=>{if(!dimHasTextAt(a))return;if(on)delete a.textLeader;else a.textLeader=false},on?'Con línea guía':'Sin línea guía')};
+};
+
+// =====================================================================================
+// ========== FácilTrazo rev26: CÍRCULO EN UNA CARA INCLINADA ==========
+// =====================================================================================
+// Para las caras que no son horizontales ni verticales (como las de una pirámide). Se elige hacia
+// qué lado mira la cara y su inclinación (ángulo, o avance y altura); después, igual que el círculo
+// isométrico: clic en el centro y radio o diámetro. La figura que queda es una elipse.
+const inclSettings={lado:'der',ang:60,av:'',alt:'',adelante:false};
+ISO_FACES.incl={name:'inclinada'};
+function inclAngle(){
+  const I=inclSettings;
+  if(I.av!==''&&I.alt!==''&&(I.av>0||I.alt>0))return Math.atan2(I.alt,I.av)*180/Math.PI;
+  return I.ang;
+}
+// Dos direcciones perpendiculares de la cara (en medida real), ya proyectadas en el isométrico:
+// a = borde horizontal de la cara; b = línea de mayor pendiente
+function inclFrame(){
+  const der=inclSettings.lado==='der';
+  const a=isoDir(der?30:150),back=isoDir(der?150:30);
+  const h=inclSettings.adelante?{x:-back.x,y:-back.y}:back;
+  const s=inclAngle()*Math.PI/180;
+  return{a,b:{x:Math.cos(s)*h.x,y:Math.cos(s)*h.y+Math.sin(s)}};
+}
+// Con ciertas inclinaciones la cara se ve de canto y no hay círculo que dibujar
+function inclEdgeOn(){const{a,b}=inclFrame();return Math.abs(_cross(a,b))<0.02}
+function inclEllipseShape(center,r){
+  const{a,b}=inclFrame();
+  const t0=0.5*Math.atan2(2*(a.x*b.x+a.y*b.y),(a.x*a.x+a.y*a.y)-(b.x*b.x+b.y*b.y)),c=Math.cos(t0),s=Math.sin(t0);
+  let ux=r*(a.x*c+b.x*s),uy=r*(a.y*c+b.y*s),vx=r*(-a.x*s+b.x*c),vy=r*(-a.y*s+b.y*c);
+  if(Math.hypot(vx,vy)>Math.hypot(ux,uy)){[ux,uy,vx,vy]=[vx,vy,-ux,-uy]}   // u = semieje mayor
+  if(ux*vy-uy*vx<0){vx=-vx;vy=-vy}
+  return{type:'ellipse',center:{x:center.x,y:center.y},ux,uy,vx,vy,t0:0,t1:Math.PI*2,circuloEnCara:true};
+}
+const _isoFaceFrameIncl=isoFaceFrame;
+isoFaceFrame=function(face){return face==='incl'?inclFrame():_isoFaceFrameIncl(face)};
+const _isoEllipseShapeIncl=isoEllipseShape;
+isoEllipseShape=function(center,r,face){return face==='incl'?inclEllipseShape(center,r):_isoEllipseShapeIncl(center,r,face)};
+const _isoRadiusThroughIncl=isoRadiusThrough;
+isoRadiusThrough=function(face,center,p){return face==='incl'&&inclEdgeOn()?0:_isoRadiusThroughIncl(face,center,p)};
+const _addIsoCircleEntIncl=addIsoCircleEnt;
+addIsoCircleEnt=function(center,r){
+  if(circleSettings.isoFace==='incl'&&inclEdgeOn()){setMsg('Con esa inclinación la cara se ve de canto: revise el ángulo o «Sube hacia adelante»');return null}
+  return _addIsoCircleEntIncl(center,r);
+};
+// Arrastrar un punto de esa elipse cambia su tamaño sin deformarla
+const _applyHandleDragIncl=applyHandleDrag;
+applyHandleDrag=function(e,ref,p){
+  if(e&&e.type==='ellipse'&&e.circuloEnCara&&(ref[0]==='ellU'||ref[0]==='ellV')&&!isoCircleInfo(e)){
+    const vx=ref[0]==='ellU'?e.ux:e.vx,vy=ref[0]==='ellU'?e.uy:e.vy;
+    const f=Math.hypot(p.x-e.center.x,p.y-e.center.y)/Math.hypot(vx,vy);
+    if(f>1e-6&&isFinite(f)){e.ux*=f;e.uy*=f;e.vx*=f;e.vy*=f}
+    return;
+  }
+  _applyHandleDragIncl(e,ref,p);
+};
+
+// ---------- Botones y casillas en Círculo y Elipse ----------
+function inclAddOptions(o){
+  const i=o.findIndex(x=>x.id==='isoface-right');if(i<0)return o;
+  const f=circleSettings.isoFace,I=inclSettings;
+  o.splice(i+1,0,{id:'isoface-incl',label:'◪ Cara inclinada',active:f==='incl',alias:['incl'],title:'Cara que no es horizontal ni vertical, como las de una pirámide'});
+  if(f==='incl'){
+    const u=getUnitLabel();
+    o.push({id:'incl-izq',label:'Lado izquierdo',active:I.lado==='izq',title:'La cara mira hacia la izquierda (su borde horizontal va a 150°)'},
+      {id:'incl-der',label:'Lado derecho',active:I.lado==='der',title:'La cara mira hacia la derecha (su borde horizontal va a 30°)'},
+      {id:'incl-ang',kind:'number',label:'Inclinación (°)',value:+inclAngle().toFixed(2),unit:'°'},
+      {id:'incl-av',kind:'number',label:'o por Avance',value:I.av,unit:u},
+      {id:'incl-alt',kind:'number',label:'y Altura',value:I.alt,unit:u},
+      {id:'incl-ade',label:'Sube hacia adelante',active:I.adelante,title:'Sin marcar: la cara se recuesta hacia atrás al subir (como una pirámide). Marcado: sube acercándose.'});
+  }
+  return o;
+}
+function inclSetOption(id,v){
+  const I=inclSettings;
+  if(id==='incl-izq')I.lado='izq';
+  else if(id==='incl-der')I.lado='der';
+  else if(id==='incl-ade')I.adelante=!I.adelante;
+  else if(id==='incl-ang'){if(v>=0&&v<=90){I.ang=v;I.av='';I.alt=''}else setMsg('La inclinación va de 0° (acostada) a 90° (vertical)')}
+  else if((id==='incl-av'||id==='incl-alt')&&v>=0){I[id==='incl-av'?'av':'alt']=v;I.ang=inclAngle()}
+}
+function inclFaceText(){return`inclinada ${+inclAngle().toFixed(2)}°, lado ${inclSettings.lado==='der'?'derecho':'izquierdo'}`}
+for(const C of[CircleTool,EllipseTool]){
+  const opts=C.prototype.getOptions,set=C.prototype.setOption,prompt=C.prototype.getPrompt;
+  const on=()=>C===CircleTool?circleSettings.mode==='iso':ellipseSettings.iso;
+  C.prototype.getOptions=function(){const o=opts.call(this);return on()?inclAddOptions(o):o};
+  C.prototype.setOption=function(id,v){
+    if(typeof id==='string'&&id.startsWith('incl-')){inclSetOption(id,v);return}
+    return set.call(this,id,v);
+  };
+  C.prototype.getPrompt=function(){
+    const s=prompt.call(this);
+    if(!on())return s;
+    if(circleSettings.isoFace==='incl')return s.replace('cara inclinada',()=>'cara '+inclFaceText()).replace('izq, der','izq, der, incl');
+    return s.replace('izq, der','izq, der, incl');
+  };
+}
+
+// =====================================================================================
+// ========== Las cotas horizontales y verticales giran con la figura ==========
+// =====================================================================================
+// Al girar o reflejar, la línea de cota gira junto con lo medido, así la medida no cambia. El lado fijado
+// del texto ('start'/'end') sigue junto al mismo punto medido.
+const _isHVDim=e=>!!e&&e.type==='dimension'&&(e.dimType==='horizontal'||e.dimType==='vertical')&&!!e.p1&&!!e.p2;
+function ftDimKeepEnd(e,side,end){
+  if(side==='start'||side==='end')e.textSide=ftDimEnds(e)===end?side:side==='start'?'end':'start';
+}
+const _rotateEntityHV=rotateEntity;
+rotateEntity=function(e,center,angle){
+  if(!_isHVDim(e))return _rotateEntityHV(e,center,angle);
+  const u=ftDimDir(e),end=ftDimEnds(e),side=e.textSide,c=Math.cos(angle),s=Math.sin(angle);
+  _rotateEntityHV(e,center,angle);
+  ftDimSetDir(e,{x:u.x*c-u.y*s,y:u.x*s+u.y*c});
+  ftDimKeepEnd(e,side,end);
+};
+const _mirrorEntityHV=mirrorEntity;
+mirrorEntity=function(e,a,b){
+  if(!_isHVDim(e))return _mirrorEntityHV(e,a,b);
+  const u=ftDimDir(e),end=ftDimEnds(e),side=e.textSide;
+  _mirrorEntityHV(e,a,b);
+  const o=reflectPoint({x:0,y:0},a,b),v=reflectPoint(u,a,b);
+  ftDimSetDir(e,{x:v.x-o.x,y:v.y-o.y});
+  ftDimKeepEnd(e,side,end);
 };
 </script>
 <!-- Lector de PDF: pdf.js (Mozilla), licencia Apache 2.0 - https://github.com/mozilla/pdf.js ; avisos de terceros: AVISOS_DE_TERCEROS.txt -->
